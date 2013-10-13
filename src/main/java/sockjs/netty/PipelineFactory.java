@@ -22,7 +22,7 @@ public class PipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("aggregator", new HttpChunkAggregator(Short.MAX_VALUE));
         pipeline.addLast("encoder", new HttpResponseEncoder());
 
-        pipeline.addLast("http_handler", new RequestHandler());
+        pipeline.addLast("http_handler", new HttpRequestHandler());
         pipeline.addLast("ws_handler", new WebSocketFrameHandler());
 
         return pipeline;

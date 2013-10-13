@@ -14,11 +14,9 @@ import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.charset.Charset;
+public class HttpRequestHandler extends SimpleChannelHandler {
 
-public class RequestHandler extends SimpleChannelHandler {
-
-    private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(HttpRequestHandler.class);
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e)
@@ -30,8 +28,6 @@ public class RequestHandler extends SimpleChannelHandler {
     }
 
     private void handleRequest(ChannelHandlerContext ctx, HttpRequest req) {
-
-
         sendOk(ctx, HttpResponseStatus.OK, "hi!");
     }
 
