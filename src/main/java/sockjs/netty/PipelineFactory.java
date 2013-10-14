@@ -10,8 +10,15 @@ import org.jboss.netty.channel.DefaultChannelPipeline;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
+import sockjs.SockJs;
 
 public class PipelineFactory implements ChannelPipelineFactory {
+
+    SockJs sockJs;
+
+    public PipelineFactory(SockJs sockJs) {
+        this.sockJs = sockJs;
+    }
 
     @Override
     public ChannelPipeline getPipeline()
@@ -22,8 +29,8 @@ public class PipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("aggregator", new HttpChunkAggregator(Short.MAX_VALUE));
         pipeline.addLast("encoder", new HttpResponseEncoder());
 
-        pipeline.addLast("http_handler", new HttpRequestHandler());
-        pipeline.addLast("ws_handler", new WebSocketFrameHandler());
+        pipeline.addLast("http_handler", new HttpRequestHandler(sockJs));
+        pipeline.addLast("ws_handler", new WebSocketFrameHandler(sockJs));
 
         return pipeline;
     }
