@@ -4,6 +4,7 @@
  */
 package sockjs.transports;
 
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -14,6 +15,7 @@ import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sockjs.Connection;
 import sockjs.netty.HttpHelpers;
 
 public class WebSocket extends AbstractTransport {
@@ -24,7 +26,7 @@ public class WebSocket extends AbstractTransport {
 
     public static final String ERR_INVALID_REQUEST = "Can \"Upgrade\" only to \"WebSocket\".";
 
-    private static final ChannelFutureListener ON_HANDSHAKE_FINISHED = new HandshakeFinishedListener();
+    private final ChannelFutureListener ON_HANDSHAKE_FINISHED = new HandshakeFinishedListener();
 
     @Override
     public void handle(ChannelHandlerContext ctx, HttpRequest httpRequest) {
@@ -43,7 +45,6 @@ public class WebSocket extends AbstractTransport {
                 }
             }
         } else {
-            log.info("Invalid request");
             HttpHelpers.sendError(ctx, HttpResponseStatus.BAD_REQUEST, ERR_INVALID_REQUEST);
         }
     }
@@ -52,6 +53,10 @@ public class WebSocket extends AbstractTransport {
     public void handle(ChannelHandlerContext ctx, WebSocketFrame webSocketFrame) {
     }
 
+    @Override
+    public void sendHeartbeat(Channel channel) {
+        channel.write(Protocol.WEB_SOCKET_HEARTBEAT_FRAME);
+    }
 
     private boolean isWebSocketUpgrade(HttpRequest httpRequest) {
         return "WebSocket".compareToIgnoreCase(httpRequest.getHeader(HttpHeaders.Names.UPGRADE)) == 0;
@@ -65,11 +70,14 @@ public class WebSocket extends AbstractTransport {
         return "ws://" + req.getHeader(HttpHeaders.Names.HOST) + path;
     }
 
-    private static class HandshakeFinishedListener implements ChannelFutureListener {
+    private class HandshakeFinishedListener implements ChannelFutureListener {
         @Override
         public void operationComplete(ChannelFuture future)
                 throws Exception {
-            future.getChannel().write(new TextWebSocketFrame("o"));
+            future.getChannel().write(Protocol.WEB_SOCKET_OPEN_FRAME);
+            Connection connection = new Connection(future.getChannel());
+            connection.startHeartbeat(WebSocket.this);
+
         }
     }
 }
