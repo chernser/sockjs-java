@@ -4,6 +4,9 @@
  */
 package sockjs;
 
+import sockjs.transports.WebSocket;
+import sockjs.transports.XHttpRequest;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -20,8 +23,14 @@ public class SockJs {
 
     private boolean isCookiesNeeded = false;
 
+    private Map<String, Transport> transports;
+
     public SockJs() {
         listeners = new ConcurrentHashMap<String, Set<ConnectionListener>>();
+        transports = new HashMap<String, Transport>();
+
+        addTransport("websocket", new WebSocket());
+        addTransport("xhr", new XHttpRequest());
     }
 
     public boolean isWebSocketEnabled() {
@@ -90,6 +99,14 @@ public class SockJs {
     public String getInfoAsString() {
         return String.format(INFO_FMT_STRING, isWebSocketEnabled(), isCookiesNeeded(), entropyRandom
                 .nextInt());
+    }
+
+    public Transport getTransport(String shortName) {
+        return transports.get(shortName);
+    }
+
+    private void addTransport(String shortName, Transport transport) {
+        transports.put(shortName, transport);
     }
 
     private String normalizeBaseUrl(String baseUrl) {

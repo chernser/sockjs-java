@@ -14,6 +14,7 @@ import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sockjs.SockJs;
+import sockjs.Transport;
 
 public class HttpRequestHandler extends SimpleChannelHandler {
 
@@ -59,10 +60,13 @@ public class HttpRequestHandler extends SimpleChannelHandler {
             return;
         }
 
-        String transport = getTransport(req.getUri());
+        Transport transport = sockJs.getTransport(getTransport(req.getUri()));
+        if (transport == null) {
+            sendError(ctx, HttpResponseStatus.NOT_FOUND);
+            return;
+        }
 
-
-        sendText(ctx, HttpResponseStatus.OK, "hi!");
+        transport.handle(ctx, req);
     }
 
     private void sendText(ChannelHandlerContext ctx, HttpResponseStatus status, String body) {
