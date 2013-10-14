@@ -4,24 +4,72 @@
  */
 package sockjs.transports;
 
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.jboss.netty.handler.codec.http.*;
+import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
-import sockjs.Transport;
+import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
+import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import sockjs.netty.HttpHelpers;
 
 public class WebSocket extends AbstractTransport {
 
+    private static final Logger log = LoggerFactory.getLogger(WebSocket.class);
+
+    public static final String ERR_INCORRECT_UPGRADE = "\"Connection\" must be \"Upgrade\".";
+
+    public static final String ERR_INVALID_REQUEST = "Can \"Upgrade\" only to \"WebSocket\".";
+
+    private static final ChannelFutureListener ON_HANDSHAKE_FINISHED = new HandshakeFinishedListener();
+
     @Override
     public void handle(ChannelHandlerContext ctx, HttpRequest httpRequest) {
-
-
-        super.handle(ctx, httpRequest);    //To change body of overridden methods use File |
-        // Settings | File Templates.
+        if (isWebSocketUpgrade(httpRequest)) {
+            if (!isValidConnectionHeader(httpRequest)) {
+                HttpHelpers.sendError(ctx, HttpResponseStatus.BAD_REQUEST, ERR_INCORRECT_UPGRADE);
+            } else {
+                // upgrade & handshake
+                WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(
+                        getWebSocketLocation(httpRequest, "/"), null, false);
+                WebSocketServerHandshaker handshaker = wsFactory.newHandshaker(httpRequest);
+                if (handshaker == null) {
+                    wsFactory.sendUnsupportedWebSocketVersionResponse(ctx.getChannel());
+                } else {
+                    handshaker.handshake(ctx.getChannel(), httpRequest).addListener(ON_HANDSHAKE_FINISHED);
+                }
+            }
+        } else {
+            log.info("Invalid request");
+            HttpHelpers.sendError(ctx, HttpResponseStatus.BAD_REQUEST, ERR_INVALID_REQUEST);
+        }
     }
 
     @Override
     public void handle(ChannelHandlerContext ctx, WebSocketFrame webSocketFrame) {
-        super.handle(ctx, webSocketFrame);    //To change body of overridden methods use File |
-        // Settings | File Templates.
+    }
+
+
+    private boolean isWebSocketUpgrade(HttpRequest httpRequest) {
+        return "WebSocket".compareToIgnoreCase(httpRequest.getHeader(HttpHeaders.Names.UPGRADE)) == 0;
+    }
+
+    private boolean isValidConnectionHeader(HttpRequest httpRequest) {
+        return "Upgrade".compareToIgnoreCase(httpRequest.getHeader(HttpHeaders.Names.CONNECTION)) == 0;
+    }
+
+    private static String getWebSocketLocation(HttpRequest req, String path) {
+        return "ws://" + req.getHeader(HttpHeaders.Names.HOST) + path;
+    }
+
+    private static class HandshakeFinishedListener implements ChannelFutureListener {
+        @Override
+        public void operationComplete(ChannelFuture future)
+                throws Exception {
+            future.getChannel().write(new TextWebSocketFrame("o"));
+        }
     }
 }

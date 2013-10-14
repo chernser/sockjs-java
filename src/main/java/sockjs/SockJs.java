@@ -97,8 +97,8 @@ public class SockJs {
     }
 
     public String getInfoAsString() {
-        return String.format(INFO_FMT_STRING, isWebSocketEnabled(), isCookiesNeeded(), entropyRandom
-                .nextInt());
+        return String.format(INFO_FMT_STRING, isWebSocketEnabled(), isCookiesNeeded(), Math
+                .abs(entropyRandom.nextInt()));
     }
 
     public Transport getTransport(String shortName) {

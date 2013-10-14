@@ -8,6 +8,7 @@ import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sockjs.ConnectionListener;
 import sockjs.SockJs;
 
 import java.net.InetSocketAddress;
@@ -38,6 +39,22 @@ public class StandaloneServer  {
         log.info("Starting standalone server ");
 
         SockJs sockJs = new SockJs();
+        sockJs.addListener("/chat", new ConnectionListener() {
+            @Override
+            public void onOpen() {
+
+            }
+
+            @Override
+            public void onClose() {
+
+            }
+
+            @Override
+            public void onMessage() {
+
+            }
+        });
         StandaloneServer server = new StandaloneServer(sockJs);
         server.start();
     }

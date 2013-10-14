@@ -25,4 +25,11 @@ public class HttpHelpers {
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
+    public static void sendError(ChannelHandlerContext ctx, HttpResponseStatus status, String body) {
+        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, status);
+        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=utf8");
+        response.setContent(ChannelBuffers.copiedBuffer(body, CharsetUtil.UTF_8));
+        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+    }
+
 }

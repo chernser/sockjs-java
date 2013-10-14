@@ -10,15 +10,17 @@ import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelHandler;
 import org.jboss.netty.handler.codec.http.*;
+import org.jboss.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
+import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
 import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sockjs.SockJs;
 import sockjs.Transport;
 
-public class HttpRequestHandler extends SimpleChannelHandler {
+public class HttpHandler extends SimpleChannelHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(HttpRequestHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(HttpHandler.class);
 
     private final SockJs sockJs;
 
@@ -27,7 +29,7 @@ public class HttpRequestHandler extends SimpleChannelHandler {
     private int maxAge = 31536000;
 
 
-    public HttpRequestHandler(SockJs sockJs) {
+    public HttpHandler(SockJs sockJs) {
         this.sockJs = sockJs;
     }
 
@@ -37,6 +39,8 @@ public class HttpRequestHandler extends SimpleChannelHandler {
         Object msg = e.getMessage();
         if (msg instanceof HttpRequest) {
             handleRequest(ctx, (HttpRequest) msg);
+        } else if (msg instanceof WebSocketFrame) {
+            handleFrame(ctx, (WebSocketFrame)msg);
         }
     }
 
@@ -67,6 +71,10 @@ public class HttpRequestHandler extends SimpleChannelHandler {
         }
 
         transport.handle(ctx, req);
+    }
+
+    private void handleFrame(ChannelHandlerContext ctx, WebSocketFrame frame) {
+
     }
 
     private void sendGreeting(ChannelHandlerContext ctx) {
