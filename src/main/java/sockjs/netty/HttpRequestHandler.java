@@ -43,7 +43,7 @@ public class HttpRequestHandler extends SimpleChannelHandler {
     private void handleRequest(ChannelHandlerContext ctx, HttpRequest req) {
 
         if (!sockJs.hasListenerForRoute(req.getUri())) {
-            sendError(ctx, HttpResponseStatus.NOT_FOUND);
+            HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);
             return;
         }
 
@@ -51,7 +51,7 @@ public class HttpRequestHandler extends SimpleChannelHandler {
             sendGreeting(ctx);
             return;
         } else if (req.getMethod() != HttpMethod.GET) {
-            sendError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED);
+            HttpHelpers.sendError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED);
             return;
         }
 
@@ -62,24 +62,11 @@ public class HttpRequestHandler extends SimpleChannelHandler {
 
         Transport transport = sockJs.getTransport(getTransport(req.getUri()));
         if (transport == null) {
-            sendError(ctx, HttpResponseStatus.NOT_FOUND);
+            HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);
             return;
         }
 
         transport.handle(ctx, req);
-    }
-
-    private void sendText(ChannelHandlerContext ctx, HttpResponseStatus status, String body) {
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, status);
-        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=utf8");
-        response.setContent(ChannelBuffers.copiedBuffer(body, CharsetUtil.UTF_8));
-        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
-    }
-
-    private void sendError(ChannelHandlerContext ctx, HttpResponseStatus status) {
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, status);
-        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=utf8");
-        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
     private void sendGreeting(ChannelHandlerContext ctx) {
