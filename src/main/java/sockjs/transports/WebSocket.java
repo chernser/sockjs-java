@@ -4,6 +4,7 @@
  */
 package sockjs.transports;
 
+import com.sun.xml.internal.ws.util.StringUtils;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -13,9 +14,11 @@ import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
+import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sockjs.Connection;
+import sockjs.Message;
 import sockjs.netty.HttpHelpers;
 
 public class WebSocket extends AbstractTransport {
@@ -58,6 +61,11 @@ public class WebSocket extends AbstractTransport {
         channel.write(Protocol.WEB_SOCKET_HEARTBEAT_FRAME);
     }
 
+    @Override
+    public void sendMessage(Channel channel, Message message) {
+        channel.write(Protocol.encodeMessageToWebSocketFrame(message));
+    }
+
     private boolean isWebSocketUpgrade(HttpRequest httpRequest) {
         return "WebSocket".compareToIgnoreCase(httpRequest.getHeader(HttpHeaders.Names.UPGRADE)) == 0;
     }
@@ -75,9 +83,8 @@ public class WebSocket extends AbstractTransport {
         public void operationComplete(ChannelFuture future)
                 throws Exception {
             future.getChannel().write(Protocol.WEB_SOCKET_OPEN_FRAME);
-            Connection connection = new Connection(future.getChannel());
-            connection.startHeartbeat(WebSocket.this);
-
+            Connection connection = new Connection(future.getChannel(), WebSocket.this);
+            connection.startHeartbeat();
         }
     }
 }

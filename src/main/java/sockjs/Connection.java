@@ -8,13 +8,15 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.Timeout;
 import org.jboss.netty.util.TimerTask;
-import sockjs.transports.Protocol;
 
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class Connection {
 
     private Channel channel;
+
+    private Transport transport;
 
     private static HashedWheelTimer heartbeatTimer = new HashedWheelTimer();
 
@@ -22,8 +24,12 @@ public class Connection {
 
     private volatile int heartbeatIntervalSec = 25;
 
-    public Connection(final Channel channel) {
+    private String id;
+
+    public Connection(Channel channel, Transport transport) {
         this.channel = channel;
+        this.transport = transport;
+        this.id = UUID.randomUUID().toString();
     }
 
     public void setChannel(Channel channel) {
@@ -46,13 +52,21 @@ public class Connection {
         return heartbeatIntervalSec;
     }
 
+    public String getId() {
+        return id;
+    }
+
     public void setHeartbeatIntervalSec(int heartbeatIntervalSec) {
         this.heartbeatIntervalSec = heartbeatIntervalSec;
     }
 
-    public void startHeartbeat(Transport transport) {
+    public void startHeartbeat() {
         setKeepSendingHeartbeat(true);
         startHeartbeat(this, transport);
+    }
+
+    public void send(Message message) {
+        transport.sendMessage(getChannel(), message);
     }
 
     private static void startHeartbeat(final Connection connection, final Transport transport) {
@@ -61,8 +75,8 @@ public class Connection {
             @Override
             public void run(Timeout timeout)
                     throws Exception {
-                if (connection.isKeepSendingHeartbeat()) {
-                    transport.sendHeartbeat(connection.channel);
+                if (connection.isKeepSendingHeartbeat() && connection.getChannel().isWritable()) {
+                    transport.sendHeartbeat(connection.getChannel());
                     heartbeatTimer.newTimeout(this, connection
                             .getHeartbeatIntervalSec(), TimeUnit.SECONDS);
                 }
@@ -70,6 +84,5 @@ public class Connection {
         };
 
         heartbeatTimer.newTimeout(timerTask, connection.getHeartbeatIntervalSec(), TimeUnit.SECONDS);
-
     }
 }

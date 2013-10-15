@@ -19,43 +19,46 @@ public class StandaloneServer  {
 
     private final SockJs sockJs;
 
-    public StandaloneServer(SockJs sockJs) {
+    private ServerBootstrap bootstrap;
+
+    private int port;
+
+    public StandaloneServer(SockJs sockJs, int port) {
         this.sockJs = sockJs;
+        this.port = port;
     }
 
-    public void start() {
-
-        ServerBootstrap bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory());
+    public synchronized void start() {
+        stop();
+        bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory());
         bootstrap.setPipelineFactory(new PipelineFactory(sockJs));
-
-        bootstrap.bind(new InetSocketAddress(3002));
+        bootstrap.bind(new InetSocketAddress(getPort()));
     }
 
-    public void stop() {
+    public synchronized void stop() {
+        if (getBootstrap() == null) {
+            return;
+        }
 
+        ServerBootstrap currentBootstrap = getBootstrap();
+        setBootstrap(null);
+
+        currentBootstrap.shutdown();
     }
 
-    public static void main(String[] args) {
-        log.info("Starting standalone server ");
+    public int getPort() {
+        return port;
+    }
 
-        SockJs sockJs = new SockJs();
-        sockJs.addListener("/chat", new ConnectionListener() {
-            @Override
-            public void onOpen() {
+    public void setPort(int port) {
+        this.port = port;
+    }
 
-            }
+    public ServerBootstrap getBootstrap() {
+        return bootstrap;
+    }
 
-            @Override
-            public void onClose() {
-
-            }
-
-            @Override
-            public void onMessage() {
-
-            }
-        });
-        StandaloneServer server = new StandaloneServer(sockJs);
-        server.start();
+    private void setBootstrap(ServerBootstrap bootstrap) {
+        this.bootstrap = bootstrap;
     }
 }

@@ -12,4 +12,6 @@ public interface Transport {
     void handle(ChannelHandlerContext ctx, WebSocketFrame webSocketFrame);
 
     void sendHeartbeat(Channel channel);
+
+    void sendMessage(Channel channel, Message message);
 }

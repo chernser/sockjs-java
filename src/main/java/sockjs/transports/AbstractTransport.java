@@ -11,7 +11,7 @@ import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
 import sockjs.Transport;
 import sockjs.netty.HttpHelpers;
 
-public class AbstractTransport implements Transport {
+public abstract class AbstractTransport implements Transport {
 
     @Override
     public void handle(ChannelHandlerContext ctx, HttpRequest httpRequest) {
@@ -23,7 +23,4 @@ public class AbstractTransport implements Transport {
         HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_IMPLEMENTED);
     }
 
-    @Override
-    public void sendHeartbeat(Channel channel) {
-    }
 }

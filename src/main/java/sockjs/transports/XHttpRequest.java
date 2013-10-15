@@ -4,7 +4,19 @@
  */
 package sockjs.transports;
 
+import org.jboss.netty.channel.Channel;
+import sockjs.Message;
 import sockjs.Transport;
 
 public class XHttpRequest extends AbstractTransport {
+
+    @Override
+    public void sendHeartbeat(Channel channel) {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void sendMessage(Channel channel, Message message) {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
 }

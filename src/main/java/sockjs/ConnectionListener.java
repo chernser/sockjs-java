@@ -2,9 +2,9 @@ package sockjs;
 
 public interface ConnectionListener {
 
-    void onOpen();
+    void onOpen(Connection connection);
 
-    void onClose();
+    void onClose(Connection connection);
 
-    void onMessage();
+    void onMessage(Connection connection, Message message);
 }
