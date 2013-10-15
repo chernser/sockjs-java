@@ -16,7 +16,7 @@ public class TestStandaloneServer {
         log.info("Starting standalone server ");
 
         SockJs sockJs = new SockJs();
-        sockJs.addListener("/echo", new EchoListener());
+        sockJs.addListener("/chat", new EchoListener());
         StandaloneServer server = new StandaloneServer(sockJs, 3002);
         server.start();
     }
@@ -36,7 +36,7 @@ public class TestStandaloneServer {
         public void onMessage(Connection connection, Message message) {
             log.info("message from connection: " + connection.getId() + " {" + message
                     .getPayload() + "}");
-            connection.send(message);
+            connection.sendToChannel(message);
         }
     }
 }

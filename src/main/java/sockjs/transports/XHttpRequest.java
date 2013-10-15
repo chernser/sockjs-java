@@ -6,9 +6,14 @@ package sockjs.transports;
 
 import org.jboss.netty.channel.Channel;
 import sockjs.Message;
+import sockjs.SockJs;
 import sockjs.Transport;
 
 public class XHttpRequest extends AbstractTransport {
+
+    public XHttpRequest(SockJs sockJs) {
+        super(sockJs);
+    }
 
     @Override
     public void sendHeartbeat(Channel channel) {

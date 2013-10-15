@@ -70,11 +70,20 @@ public class HttpHandler extends SimpleChannelHandler {
             return;
         }
 
+        SockJsHandlerContext sockJsHandlerContext = new SockJsHandlerContext();
+        sockJsHandlerContext.setBaseUrl(sockJs.getBaseUrl(req.getUri()));
+        ctx.setAttachment(sockJsHandlerContext);
         transport.handle(ctx, req);
     }
 
     private void handleFrame(ChannelHandlerContext ctx, WebSocketFrame frame) {
+        Transport transport = sockJs.getTransport(SockJs.WEBSOCKET_TRANSPORT);
+        if (transport == null) {
+            ctx.getChannel().close().addListener(ChannelFutureListener.CLOSE);
+            return;
+        }
 
+        transport.handle(ctx, frame);
     }
 
     private void sendGreeting(ChannelHandlerContext ctx) {

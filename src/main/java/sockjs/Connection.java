@@ -26,9 +26,13 @@ public class Connection {
 
     private String id;
 
-    public Connection(Channel channel, Transport transport) {
-        this.channel = channel;
-        this.transport = transport;
+    private final SockJs sockJs;
+
+    private final String baseUrl;
+
+    public Connection(SockJs sockJs, String baseUrl) {
+        this.sockJs = sockJs;
+        this.baseUrl = baseUrl;
         this.id = UUID.randomUUID().toString();
     }
 
@@ -56,6 +60,18 @@ public class Connection {
         return id;
     }
 
+    public Transport getTransport() {
+        return transport;
+    }
+
+    public void setTransport(Transport transport) {
+        this.transport = transport;
+    }
+
+    public String getBaseUrl() {
+        return baseUrl;
+    }
+
     public void setHeartbeatIntervalSec(int heartbeatIntervalSec) {
         this.heartbeatIntervalSec = heartbeatIntervalSec;
     }
@@ -65,8 +81,12 @@ public class Connection {
         startHeartbeat(this, transport);
     }
 
-    public void send(Message message) {
+    public void sendToChannel(Message message) {
         transport.sendMessage(getChannel(), message);
+    }
+
+    public void sendToListeners(Message message) {
+        sockJs.notifyListeners(this, message);
     }
 
     private static void startHeartbeat(final Connection connection, final Transport transport) {

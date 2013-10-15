@@ -4,6 +4,7 @@
  */
 package sockjs;
 
+import org.jboss.netty.channel.Channel;
 import sockjs.transports.WebSocket;
 import sockjs.transports.XHttpRequest;
 
@@ -11,6 +12,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class SockJs {
+
+    public static final String WEBSOCKET_TRANSPORT = "websocket";
+
+    public static final String XHR_TRANSPORT = "xhr";
 
     private ConcurrentHashMap<String, Set<ConnectionListener>> listeners;
 
@@ -29,8 +34,8 @@ public class SockJs {
         listeners = new ConcurrentHashMap<String, Set<ConnectionListener>>();
         transports = new HashMap<String, Transport>();
 
-        addTransport("websocket", new WebSocket());
-        addTransport("xhr", new XHttpRequest());
+        addTransport(WEBSOCKET_TRANSPORT, new WebSocket(this));
+        addTransport(XHR_TRANSPORT, new XHttpRequest(this));
     }
 
     public boolean isWebSocketEnabled() {
@@ -92,9 +97,32 @@ public class SockJs {
         return false;
     }
 
+    public String getBaseUrl(String url) {
+        for (String baseUrl : listeners.keySet()) {
+            if (url.indexOf(baseUrl) == 0) {
+                if (url.length() == baseUrl.length() || url.charAt(baseUrl.length()) == '/') {
+                    return baseUrl;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public void notifyListeners(Connection connection, Message message) {
+        Collection<ConnectionListener> connectionListeners = listeners.get(connection.getBaseUrl());
+
+        if (connectionListeners != null) {
+            for (ConnectionListener listener : connectionListeners) {
+                listener.onMessage(connection, message);
+            }
+        }
+    }
+
     public boolean isRootOfBaseUrl(String url) {
         return listeners.containsKey(url);
     }
+
 
     public String getInfoAsString() {
         return String.format(INFO_FMT_STRING, isWebSocketEnabled(), isCookiesNeeded(), Math
@@ -103,6 +131,10 @@ public class SockJs {
 
     public Transport getTransport(String shortName) {
         return transports.get(shortName);
+    }
+
+    public Connection createConnection(String baseUrl) {
+        return new Connection(this, baseUrl);
     }
 
     private void addTransport(String shortName, Transport transport) {

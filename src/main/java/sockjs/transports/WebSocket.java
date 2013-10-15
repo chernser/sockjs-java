@@ -19,7 +19,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sockjs.Connection;
 import sockjs.Message;
+import sockjs.SockJs;
 import sockjs.netty.HttpHelpers;
+import sockjs.netty.SockJsHandlerContext;
 
 public class WebSocket extends AbstractTransport {
 
@@ -30,6 +32,10 @@ public class WebSocket extends AbstractTransport {
     public static final String ERR_INVALID_REQUEST = "Can \"Upgrade\" only to \"WebSocket\".";
 
     private final ChannelFutureListener ON_HANDSHAKE_FINISHED = new HandshakeFinishedListener();
+
+    public WebSocket(SockJs sockJs) {
+        super(sockJs);
+    }
 
     @Override
     public void handle(ChannelHandlerContext ctx, HttpRequest httpRequest) {
@@ -54,6 +60,22 @@ public class WebSocket extends AbstractTransport {
 
     @Override
     public void handle(ChannelHandlerContext ctx, WebSocketFrame webSocketFrame) {
+        SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx);
+        if (sockJsHandlerContext == null) {
+            log.error("no sockjs handler context for channel");
+            return;
+        }
+        if (sockJsHandlerContext.getConnection() == null) {
+            log.error("no sockjs connection for channel");
+            return;
+        }
+
+        if (webSocketFrame instanceof TextWebSocketFrame) {
+            Message[] messages = Protocol.decodeMessage(((TextWebSocketFrame) webSocketFrame).getText());
+            for (Message message : messages) {
+                sockJsHandlerContext.getConnection().sendToListeners(message);
+            }
+        }
     }
 
     @Override
@@ -83,8 +105,16 @@ public class WebSocket extends AbstractTransport {
         public void operationComplete(ChannelFuture future)
                 throws Exception {
             future.getChannel().write(Protocol.WEB_SOCKET_OPEN_FRAME);
-            Connection connection = new Connection(future.getChannel(), WebSocket.this);
-            connection.startHeartbeat();
+            SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(future.getChannel());
+            if (sockJsHandlerContext != null) {
+                Connection connection = getSockJs().createConnection(sockJsHandlerContext.getBaseUrl());
+                connection.setChannel(future.getChannel());
+                connection.setTransport(WebSocket.this);
+                connection.startHeartbeat();
+                sockJsHandlerContext.setConnection(connection);
+            } else {
+                log.error("no sockjs handler context for channel");
+            }
         }
     }
 }
