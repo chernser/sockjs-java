@@ -21,7 +21,9 @@ public class HttpHelpers {
 
     public static void sendError(ChannelHandlerContext ctx, HttpResponseStatus status) {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, status);
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, true);
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=utf8");
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
@@ -29,6 +31,8 @@ public class HttpHelpers {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, status);
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=utf8");
         response.setContent(ChannelBuffers.copiedBuffer(body, CharsetUtil.UTF_8));
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, true);
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 

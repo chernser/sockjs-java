@@ -17,6 +17,10 @@ public class SockJs {
 
     public static final String XHR_TRANSPORT = "xhr";
 
+    public static final String XHR_TRANSPORT_SEND = "xhr_send";
+
+    public static final String XHR_TRANSPORT_STREAMING = "xhr_streaming";
+
     private ConcurrentHashMap<String, Set<ConnectionListener>> listeners;
 
     private static final String INFO_FMT_STRING = //
@@ -35,7 +39,10 @@ public class SockJs {
         transports = new HashMap<String, Transport>();
 
         addTransport(WEBSOCKET_TRANSPORT, new WebSocket(this));
-        addTransport(XHR_TRANSPORT, new XHttpRequest(this));
+        XHttpRequest xhr = new XHttpRequest(this);
+        addTransport(XHR_TRANSPORT, xhr);
+        addTransport(XHR_TRANSPORT_SEND, xhr);
+        addTransport(XHR_TRANSPORT_STREAMING, xhr);
     }
 
     public boolean isWebSocketEnabled() {

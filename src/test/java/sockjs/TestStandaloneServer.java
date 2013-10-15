@@ -16,6 +16,7 @@ public class TestStandaloneServer {
         log.info("Starting standalone server ");
 
         SockJs sockJs = new SockJs();
+        sockJs.setWebSocketEnabled(false);
         sockJs.addListener("/chat", new EchoListener());
         StandaloneServer server = new StandaloneServer(sockJs, 3002);
         server.start();

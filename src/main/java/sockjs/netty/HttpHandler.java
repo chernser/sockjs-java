@@ -5,10 +5,7 @@
 package sockjs.netty;
 
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelHandler;
+import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
@@ -45,17 +42,30 @@ public class HttpHandler extends SimpleChannelHandler {
     }
 
     private void handleRequest(ChannelHandlerContext ctx, HttpRequest req) {
+        if (req.getMethod() == HttpMethod.OPTIONS) {
+            log.info("sending options for: " + req.getUri());
+            sendOptions(ctx, new HttpMethod[] {HttpMethod.OPTIONS, HttpMethod.POST});
+            return;
+        }
 
         if (!sockJs.hasListenerForRoute(req.getUri())) {
             HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);
             return;
         }
 
-        if (sockJs.isRootOfBaseUrl(req.getUri()) && req.getMethod() == HttpMethod.GET) {
-            sendGreeting(ctx);
-            return;
-        } else if (req.getMethod() != HttpMethod.GET) {
-            HttpHelpers.sendError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED);
+        if (sockJs.isRootOfBaseUrl(req.getUri())) {
+            if (req.getMethod() == HttpMethod.GET) {
+                sendGreeting(ctx);
+                return;
+            } else if (req.getMethod() != HttpMethod.GET) {
+                HttpHelpers.sendError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED);
+                return;
+            }
+        }
+
+        if (req.getMethod().equals(HttpMethod.OPTIONS)) {
+            log.info("sending options for: " + req.getUri());
+            sendOptions(ctx, new HttpMethod[] {HttpMethod.OPTIONS, HttpMethod.POST});
             return;
         }
 
@@ -69,6 +79,7 @@ public class HttpHandler extends SimpleChannelHandler {
             HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);
             return;
         }
+
 
         SockJsHandlerContext sockJsHandlerContext = new SockJsHandlerContext();
         sockJsHandlerContext.setBaseUrl(sockJs.getBaseUrl(req.getUri()));
