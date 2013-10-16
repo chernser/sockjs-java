@@ -75,8 +75,8 @@ public class HttpHandler extends SimpleChannelHandler {
             return;
         }
 
-        if (req.getUri().endsWith("/iframe.html") && req.getMethod() == HttpMethod.GET) {
-            HttpHelpers.sendIFrameHtml(ctx);
+        if (req.getUri().matches(".*/iframe[\\d\\w\\.\\-_]*.html.*") && req.getMethod() == HttpMethod.GET) {
+            HttpHelpers.sendIFrameHtml(ctx, req.getHeader(HttpHeaders.Names.IF_NONE_MATCH));
             return;
         }
 
