@@ -27,12 +27,15 @@ public class XHttpRequest extends AbstractTransport {
 
     private static final HttpChunk HEARTBEAT_CHUNK;
 
+    private static final HttpChunk CLOSE_CHUNK;
 
     static {
         ChannelBuffer heartbeatContent = ChannelBuffers
                 .copiedBuffer(Protocol.HEARTBEAT_FRAME + "\n", CharsetUtil.UTF_8);
         HEARTBEAT_CHUNK = new DefaultHttpChunk(heartbeatContent);
-
+        ChannelBuffer closeContent = ChannelBuffers.copiedBuffer(Protocol.CLOSE_FRAME + "\n",
+                CharsetUtil.UTF_8);
+        CLOSE_CHUNK = new DefaultHttpChunk(closeContent);
     }
 
     public XHttpRequest(SockJs sockJs) {
@@ -65,6 +68,11 @@ public class XHttpRequest extends AbstractTransport {
         log.info("Message sent: " + message.getPayload());
     }
 
+    @Override
+    public void close(Channel channel) {
+        channel.write(CLOSE_CHUNK).addListener(ChannelFutureListener.CLOSE);
+    }
+
     private void handleStreaming(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.OK);
@@ -89,7 +97,6 @@ public class XHttpRequest extends AbstractTransport {
                     throws Exception {
                 HttpChunk chunk = new DefaultHttpChunk(ChannelBuffers
                         .copiedBuffer("o\n", CharsetUtil.UTF_8));
-                future.getChannel().write(chunk);
 
                 SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(future
                         .getChannel());
@@ -98,11 +105,25 @@ public class XHttpRequest extends AbstractTransport {
                     if (connection == null) {
                         connection = getSockJs()
                                 .createConnection(sockJsHandlerContext.getBaseUrl(),
-                                                  sockJsHandlerContext.getSessionId());
+                                        sockJsHandlerContext.getSessionId());
                     }
 
                     connection.setChannel(future.getChannel());
                     connection.setTransport(XHttpRequest.this);
+
+
+                    final Connection newConnection = connection;
+                    future.getChannel().write(chunk).addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture future)
+                                throws Exception {
+
+                            getSockJs().notifyListenersAboutNewConnection(newConnection);
+
+
+                        }
+                    });
+
                 }
             }
         });

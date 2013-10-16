@@ -21,18 +21,13 @@ public class SockJs {
 
     public static final String XHR_TRANSPORT_STREAMING = "xhr_streaming";
 
+    private static final EndpointInfo DEFAULT_INFO = new EndpointInfo();
+
     private ConcurrentHashMap<String, Set<ConnectionListener>> listeners;
 
     private ConcurrentHashMap<String, Connection> sessionConnections;
 
-    private static final String INFO_FMT_STRING = //
-            "{\"websocket\":%s, \"origins\":[\"*:*\"], \"cookie_needed\":%s, \"entropy\":%d}";
-
-    private static final Random entropyRandom = new Random();
-
-    private boolean isWebSocketEnabled = true;
-
-    private boolean isCookiesNeeded = false;
+    private ConcurrentHashMap<String, EndpointInfo> endpointInfos;
 
     private Map<String, Transport> transports;
 
@@ -40,28 +35,13 @@ public class SockJs {
         listeners = new ConcurrentHashMap<String, Set<ConnectionListener>>();
         transports = new HashMap<String, Transport>();
         sessionConnections = new ConcurrentHashMap<String, Connection>();
+        endpointInfos = new ConcurrentHashMap<String, EndpointInfo>();
 
         addTransport(WEBSOCKET_TRANSPORT, new WebSocket(this));
         XHttpRequest xhr = new XHttpRequest(this);
         addTransport(XHR_TRANSPORT, xhr);
         addTransport(XHR_TRANSPORT_SEND, xhr);
         addTransport(XHR_TRANSPORT_STREAMING, xhr);
-    }
-
-    public boolean isWebSocketEnabled() {
-        return isWebSocketEnabled;
-    }
-
-    public void setWebSocketEnabled(boolean webSocketEnabled) {
-        isWebSocketEnabled = webSocketEnabled;
-    }
-
-    public boolean isCookiesNeeded() {
-        return isCookiesNeeded;
-    }
-
-    public void setCookiesNeeded(boolean cookiesNeeded) {
-        isCookiesNeeded = cookiesNeeded;
     }
 
     public void addListener(String baseUrl, ConnectionListener listener) {
@@ -129,14 +109,30 @@ public class SockJs {
         }
     }
 
+    public void notifyListenersAboutNewConnection(Connection connection) {
+        Collection<ConnectionListener> connectionListeners = listeners.get(connection.getBaseUrl());
+
+        if (connectionListeners != null) {
+            for (ConnectionListener listener : connectionListeners) {
+                listener.onOpen(connection);
+            }
+        }
+    }
+
     public boolean isRootOfBaseUrl(String url) {
+        if (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
         return listeners.containsKey(url);
     }
 
-
-    public String getInfoAsString() {
-        return String.format(INFO_FMT_STRING, isWebSocketEnabled(), isCookiesNeeded(), Math
-                .abs(entropyRandom.nextInt()));
+    public String getInfoAsString(String baseUrl) {
+        EndpointInfo endpointInfo = getEndpointInfo(baseUrl);
+        if (endpointInfo == null) {
+            return DEFAULT_INFO.toString();
+        } else {
+            return endpointInfo.toString();
+        }
     }
 
     public Transport getTransport(String shortName) {
@@ -151,6 +147,14 @@ public class SockJs {
 
     public Connection getConnectionForSession(String sessionId) {
         return sessionConnections.get(sessionId);
+    }
+
+    public EndpointInfo getEndpointInfo(String endpoint) {
+        return endpointInfos.get(endpoint);
+    }
+
+    public void setEndpointInfo(String endpoint,EndpointInfo info) {
+        endpointInfos.put(endpoint, info);
     }
 
     private void addTransport(String shortName, Transport transport) {

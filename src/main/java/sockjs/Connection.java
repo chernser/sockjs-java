@@ -89,6 +89,10 @@ public class Connection {
         sockJs.notifyListeners(this, message);
     }
 
+    public void close() {
+        transport.close(getChannel());
+    }
+
     private static void startHeartbeat(final Connection connection, final Transport transport) {
 
         TimerTask timerTask = new TimerTask() {

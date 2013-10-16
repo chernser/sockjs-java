@@ -4,6 +4,7 @@
  */
 package sockjs.transports;
 
+import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import sockjs.Message;
@@ -14,7 +15,7 @@ public class Protocol {
 
     public static final String HEARTBEAT_FRAME = "h";
 
-    public static final String CLOSE_FRAME = "c";
+    public static final String CLOSE_FRAME = "c[3000, \"Go away!\"]";
 
     public static final String DATA_FRAME = "a";
 
@@ -22,11 +23,14 @@ public class Protocol {
 
     public static final TextWebSocketFrame WEB_SOCKET_HEARTBEAT_FRAME;
 
+    public static final TextWebSocketFrame WEB_SOCKET_CLOSE_FRAME;
+
     private static final ObjectMapper jsonObjectMapper;
 
     static {
         WEB_SOCKET_HEARTBEAT_FRAME = new TextWebSocketFrame(HEARTBEAT_FRAME);
         WEB_SOCKET_OPEN_FRAME = new TextWebSocketFrame(OPEN_FRAME);
+        WEB_SOCKET_CLOSE_FRAME = new TextWebSocketFrame(CLOSE_FRAME);
         jsonObjectMapper = new ObjectMapper();
     }
 
@@ -57,6 +61,8 @@ public class Protocol {
                 messages = new Message[] { new Message(payload)};
             }
             return messages;
+        } catch (JsonParseException ex) {
+            return null;
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }

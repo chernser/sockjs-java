@@ -72,8 +72,10 @@ public class WebSocket extends AbstractTransport {
 
         if (webSocketFrame instanceof TextWebSocketFrame) {
             Message[] messages = Protocol.decodeMessage(((TextWebSocketFrame) webSocketFrame).getText());
-            for (Message message : messages) {
-                sockJsHandlerContext.getConnection().sendToListeners(message);
+            if (messages != null) {
+                for (Message message : messages) {
+                    sockJsHandlerContext.getConnection().sendToListeners(message);
+                }
             }
         }
     }
@@ -86,6 +88,11 @@ public class WebSocket extends AbstractTransport {
     @Override
     public void sendMessage(Channel channel, Message message) {
         channel.write(Protocol.encodeMessageToWebSocketFrame(message));
+    }
+
+    @Override
+    public void close(Channel channel) {
+        channel.write(Protocol.WEB_SOCKET_CLOSE_FRAME).addListener(ChannelFutureListener.CLOSE);
     }
 
     private boolean isWebSocketUpgrade(HttpRequest httpRequest) {
@@ -113,6 +120,7 @@ public class WebSocket extends AbstractTransport {
                 connection.setTransport(WebSocket.this);
                 connection.startHeartbeat();
                 sockJsHandlerContext.setConnection(connection);
+                WebSocket.this.getSockJs().notifyListenersAboutNewConnection(connection);
             } else {
                 log.error("no sockjs handler context for channel");
             }

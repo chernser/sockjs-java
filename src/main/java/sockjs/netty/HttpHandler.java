@@ -24,6 +24,7 @@ public class HttpHandler extends SimpleChannelHandler {
 
     private int maxAge = 31536000;
 
+    private static final String GREETING = "Welcome to SockJS!\n";
 
     public HttpHandler(SockJs sockJs) {
         this.sockJs = sockJs;
@@ -54,7 +55,7 @@ public class HttpHandler extends SimpleChannelHandler {
 
         if (sockJs.isRootOfBaseUrl(req.getUri())) {
             if (req.getMethod() == HttpMethod.GET) {
-                sendGreeting(ctx);
+                sendGreeting(ctx, req);
                 return;
             } else if (req.getMethod() != HttpMethod.GET) {
                 HttpHelpers.sendError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED);
@@ -68,8 +69,9 @@ public class HttpHandler extends SimpleChannelHandler {
             return;
         }
 
+        String baseUrl = sockJs.getBaseUrl(req.getUri());
         if (req.getUri().endsWith("/info") && req.getMethod() == HttpMethod.GET) {
-            sendInfo(ctx);
+            sendInfo(ctx, baseUrl);
             return;
         }
 
@@ -86,7 +88,7 @@ public class HttpHandler extends SimpleChannelHandler {
 
         String sessionId = getSessionId(req.getUri());
         SockJsHandlerContext sockJsHandlerContext = new SockJsHandlerContext();
-        sockJsHandlerContext.setBaseUrl(sockJs.getBaseUrl(req.getUri()));
+        sockJsHandlerContext.setBaseUrl(baseUrl);
         sockJsHandlerContext.setSessionId(sessionId);
         sockJsHandlerContext.setConnection(sockJs.getConnectionForSession(sessionId));
         ctx.setAttachment(sockJsHandlerContext);
@@ -103,10 +105,18 @@ public class HttpHandler extends SimpleChannelHandler {
         transport.handle(ctx, frame);
     }
 
-    private void sendGreeting(ChannelHandlerContext ctx) {
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=utf8");
-        response.setContent(ChannelBuffers.copiedBuffer("Welcome to SockJS!\\n", CharsetUtil.UTF_8));
+    private void sendGreeting(ChannelHandlerContext ctx, HttpRequest req) {
+        HttpResponse response = new DefaultHttpResponse(req.getProtocolVersion(), HttpResponseStatus.OK);
+        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain;charset=UTF-8");
+
+
+        if (HttpVersion.HTTP_1_1.equals(req.getProtocolVersion())) {
+            response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
+        }
+
+        response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, GREETING.length());
+        response.setContent(ChannelBuffers.copiedBuffer(GREETING, CharsetUtil.UTF_8));
+
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
@@ -120,13 +130,13 @@ public class HttpHandler extends SimpleChannelHandler {
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
-    private void sendInfo(ChannelHandlerContext ctx) {
+    private void sendInfo(ChannelHandlerContext ctx, String baseUrl) {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, credentialAllowed);
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
         response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json; charset=utf8");
-        response.setContent(ChannelBuffers.copiedBuffer(sockJs.getInfoAsString(), CharsetUtil.UTF_8));
+        response.setContent(ChannelBuffers.copiedBuffer(sockJs.getInfoAsString(baseUrl), CharsetUtil.UTF_8));
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 

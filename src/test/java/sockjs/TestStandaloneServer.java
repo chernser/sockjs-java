@@ -16,8 +16,24 @@ public class TestStandaloneServer {
         log.info("Starting standalone server ");
 
         SockJs sockJs = new SockJs();
-        sockJs.setWebSocketEnabled(false);
-        sockJs.addListener("/chat", new EchoListener());
+        EndpointInfo chatEndpointInfo = new EndpointInfo();
+        chatEndpointInfo.setWebSocketEnabled(false);
+        sockJs.setEndpointInfo("/chat", chatEndpointInfo);
+
+        EndpointInfo disabledWebSocketEcho = new EndpointInfo();
+        disabledWebSocketEcho.setWebSocketEnabled(false);
+        sockJs.setEndpointInfo("/disabled_websocket_echo", disabledWebSocketEcho);
+
+        EndpointInfo cookieNeededEcho = new EndpointInfo();
+        cookieNeededEcho.setCookiesNeeded(true);
+        sockJs.setEndpointInfo("/cookie_needed_echo", cookieNeededEcho);
+
+        ConnectionListener connectionListener = new EchoListener();
+        sockJs.addListener("/chat", connectionListener);
+        sockJs.addListener("/echo", connectionListener);
+        sockJs.addListener("/disabled_websocket_echo", connectionListener);
+        sockJs.addListener("/cookie_needed_echo", connectionListener);
+        sockJs.addListener("/close", new CloseListener());
         StandaloneServer server = new StandaloneServer(sockJs, 3002);
         server.start();
     }
@@ -38,6 +54,23 @@ public class TestStandaloneServer {
             log.info("message from connection: " + connection.getId() + " {" + message
                     .getPayload() + "}");
             connection.sendToChannel(message);
+        }
+    }
+
+    private static class CloseListener implements  ConnectionListener {
+        @Override
+        public void onOpen(Connection connection) {
+            connection.close();
+        }
+
+        @Override
+        public void onClose(Connection connection) {
+
+        }
+
+        @Override
+        public void onMessage(Connection connection, Message message) {
+
         }
     }
 }

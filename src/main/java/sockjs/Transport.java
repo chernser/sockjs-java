@@ -14,4 +14,6 @@ public interface Transport {
     void sendHeartbeat(Channel channel);
 
     void sendMessage(Channel channel, Message message);
+
+    void close(Channel channel);
 }
