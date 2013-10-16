@@ -18,6 +18,7 @@ import sockjs.Connection;
 import sockjs.Message;
 import sockjs.SockJs;
 import sockjs.Transport;
+import sockjs.netty.HttpHelpers;
 import sockjs.netty.SockJsHandlerContext;
 
 public class XHttpRequest extends AbstractTransport {
@@ -118,6 +119,9 @@ public class XHttpRequest extends AbstractTransport {
                 for (Message decodedMessage : messages) {
                     connection.sendToListeners(decodedMessage);
                 }
+            } else {
+                HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);
+                return;
             }
         }
 
