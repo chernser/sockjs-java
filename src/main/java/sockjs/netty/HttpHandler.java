@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import sockjs.SockJs;
 import sockjs.Transport;
 
+import java.util.Date;
+
 public class HttpHandler extends SimpleChannelHandler {
 
     private static final Logger log = LoggerFactory.getLogger(HttpHandler.class);
@@ -43,8 +45,7 @@ public class HttpHandler extends SimpleChannelHandler {
 
     private void handleRequest(ChannelHandlerContext ctx, HttpRequest req) {
         if (req.getMethod() == HttpMethod.OPTIONS) {
-            log.info("sending options for: " + req.getUri());
-            sendOptions(ctx, new HttpMethod[] {HttpMethod.OPTIONS, HttpMethod.POST});
+            sendOptions(ctx, req);
             return;
         }
 
@@ -61,12 +62,6 @@ public class HttpHandler extends SimpleChannelHandler {
                 HttpHelpers.sendError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED);
                 return;
             }
-        }
-
-        if (req.getMethod().equals(HttpMethod.OPTIONS)) {
-            log.info("sending options for: " + req.getUri());
-            sendOptions(ctx, new HttpMethod[] {HttpMethod.OPTIONS, HttpMethod.POST});
-            return;
         }
 
         String baseUrl = sockJs.getBaseUrl(req.getUri());
@@ -120,13 +115,21 @@ public class HttpHandler extends SimpleChannelHandler {
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
-    private void sendOptions(ChannelHandlerContext ctx, HttpMethod[] allowedMethods) {
+    private void sendOptions(ChannelHandlerContext ctx, HttpRequest req) {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, credentialAllowed);
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_METHODS, allowedMethods.toString());
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_MAX_AGE, maxAge);
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-        response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "public, max-age=" + maxAge);
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_METHODS, "OPTIONS, GET");
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_MAX_AGE, HttpHelpers.YEAR_IN_SEC);
+
+        String origin = req.getHeader(HttpHeaders.Names.ORIGIN);
+        if (origin == null || origin.equals("null") || origin.isEmpty()) {
+            origin = "*";
+        }
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+        response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "public, max-age=31536000");
+        String expires = new Date(System.currentTimeMillis() + (HttpHelpers.YEAR_IN_SEC * 1000L)).toString();
+        response.setHeader(HttpHeaders.Names.EXPIRES, expires);
+
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
@@ -135,8 +138,10 @@ public class HttpHandler extends SimpleChannelHandler {
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, credentialAllowed);
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
         response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
-        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json; charset=utf8");
-        response.setContent(ChannelBuffers.copiedBuffer(sockJs.getInfoAsString(baseUrl), CharsetUtil.UTF_8));
+        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json;charset=UTF-8");
+        String info = sockJs.getInfoAsString(baseUrl);
+        response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, info.length());
+        response.setContent(ChannelBuffers.copiedBuffer(info, CharsetUtil.UTF_8));
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
