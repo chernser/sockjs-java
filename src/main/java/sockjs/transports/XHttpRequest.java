@@ -59,9 +59,9 @@ public class XHttpRequest extends AbstractTransport {
     @Override
     public void sendMessage(Channel channel, Message message) {
         ChannelBuffer content = ChannelBuffers
-                .copiedBuffer(Protocol.encodeMessageToString(message), CharsetUtil.UTF_8);
+                .copiedBuffer(Protocol.encodeMessageToString(message) + "\n", CharsetUtil.UTF_8);
         channel.write(new DefaultHttpChunk(content));
-
+        log.info("Message sent: " + message.getPayload());
     }
 
     private void handleStreaming(ChannelHandlerContext ctx, HttpRequest httpRequest) {
@@ -96,7 +96,8 @@ public class XHttpRequest extends AbstractTransport {
                     Connection connection = sockJsHandlerContext.getConnection();
                     if (connection == null) {
                         connection = getSockJs()
-                                .createConnection(sockJsHandlerContext.getBaseUrl());
+                                .createConnection(sockJsHandlerContext.getBaseUrl(),
+                                                  sockJsHandlerContext.getSessionId());
                     }
 
                     connection.setChannel(future.getChannel());
@@ -133,5 +134,7 @@ public class XHttpRequest extends AbstractTransport {
                 "" + " max-age=0");
         response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=UTF-8");
+
+        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 }

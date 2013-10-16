@@ -80,9 +80,11 @@ public class HttpHandler extends SimpleChannelHandler {
             return;
         }
 
-
+        String sessionId = getSessionId(req.getUri());
         SockJsHandlerContext sockJsHandlerContext = new SockJsHandlerContext();
         sockJsHandlerContext.setBaseUrl(sockJs.getBaseUrl(req.getUri()));
+        sockJsHandlerContext.setSessionId(sessionId);
+        sockJsHandlerContext.setConnection(sockJs.getConnectionForSession(sessionId));
         ctx.setAttachment(sockJsHandlerContext);
         transport.handle(ctx, req);
     }
@@ -128,6 +130,14 @@ public class HttpHandler extends SimpleChannelHandler {
         int lastSlashIndex = uri.lastIndexOf("/");
         if (lastSlashIndex > -1) {
             return uri.substring(lastSlashIndex + 1);
+        }
+        return null;
+    }
+
+    private String getSessionId(String uri) {
+        String[] parsedUri = uri.split("/");
+        if (parsedUri.length > 0) {
+            return parsedUri[parsedUri.length - 2];
         }
         return null;
     }

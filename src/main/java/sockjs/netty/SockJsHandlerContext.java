@@ -12,6 +12,8 @@ public class SockJsHandlerContext {
 
     private Connection connection;
 
+    private String sessionId;
+
     public String getBaseUrl() {
         return baseUrl;
     }
@@ -26,5 +28,13 @@ public class SockJsHandlerContext {
 
     public void setConnection(Connection connection) {
         this.connection = connection;
+    }
+
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
     }
 }

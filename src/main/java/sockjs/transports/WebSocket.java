@@ -107,7 +107,8 @@ public class WebSocket extends AbstractTransport {
             future.getChannel().write(Protocol.WEB_SOCKET_OPEN_FRAME);
             SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(future.getChannel());
             if (sockJsHandlerContext != null) {
-                Connection connection = getSockJs().createConnection(sockJsHandlerContext.getBaseUrl());
+                Connection connection = getSockJs().createConnection(sockJsHandlerContext.getBaseUrl(),
+                                                                     sockJsHandlerContext.getSessionId());
                 connection.setChannel(future.getChannel());
                 connection.setTransport(WebSocket.this);
                 connection.startHeartbeat();

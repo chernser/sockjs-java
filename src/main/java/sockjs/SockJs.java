@@ -23,6 +23,8 @@ public class SockJs {
 
     private ConcurrentHashMap<String, Set<ConnectionListener>> listeners;
 
+    private ConcurrentHashMap<String, Connection> sessionConnections;
+
     private static final String INFO_FMT_STRING = //
             "{\"websocket\":%s, \"origins\":[\"*:*\"], \"cookie_needed\":%s, \"entropy\":%d}";
 
@@ -37,6 +39,7 @@ public class SockJs {
     public SockJs() {
         listeners = new ConcurrentHashMap<String, Set<ConnectionListener>>();
         transports = new HashMap<String, Transport>();
+        sessionConnections = new ConcurrentHashMap<String, Connection>();
 
         addTransport(WEBSOCKET_TRANSPORT, new WebSocket(this));
         XHttpRequest xhr = new XHttpRequest(this);
@@ -140,8 +143,14 @@ public class SockJs {
         return transports.get(shortName);
     }
 
-    public Connection createConnection(String baseUrl) {
-        return new Connection(this, baseUrl);
+    public Connection createConnection(String baseUrl, String sessionId) {
+        Connection connection = new Connection(this, baseUrl);
+        sessionConnections.put(sessionId, connection);
+        return connection;
+    }
+
+    public Connection getConnectionForSession(String sessionId) {
+        return sessionConnections.get(sessionId);
     }
 
     private void addTransport(String shortName, Transport transport) {
