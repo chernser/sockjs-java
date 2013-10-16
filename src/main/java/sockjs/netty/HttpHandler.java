@@ -7,7 +7,6 @@ package sockjs.netty;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
-import org.jboss.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
 import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
@@ -71,6 +70,11 @@ public class HttpHandler extends SimpleChannelHandler {
 
         if (req.getUri().endsWith("/info") && req.getMethod() == HttpMethod.GET) {
             sendInfo(ctx);
+            return;
+        }
+
+        if (req.getUri().endsWith("/iframe.html") && req.getMethod() == HttpMethod.GET) {
+            HttpHelpers.sendIFrameHtml(ctx);
             return;
         }
 
