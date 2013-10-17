@@ -106,6 +106,10 @@ public class Connection {
         sentBytes.addAndGet(byValue);
     }
 
+    public void resetSentBytes() {
+        sentBytes.set(0);
+    }
+
     private static void startHeartbeat(final Connection connection, final Transport transport) {
 
         TimerTask timerTask = new TimerTask() {

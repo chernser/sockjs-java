@@ -86,7 +86,7 @@ public class XHttpRequest extends AbstractTransport {
         connection.incSentBytes(content.readableBytes());
 
         if (connection.getSentBytes() > getSockJs().getMaxStreamSize()) {
-            log.info("closing long lasting connection");
+            connection.resetSentBytes();
             writeFuture.addListener(SEND_LAST_CHUNK);
         }
 

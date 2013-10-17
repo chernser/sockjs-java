@@ -5,6 +5,7 @@
 package sockjs;
 
 import org.jboss.netty.channel.Channel;
+import sockjs.transports.EventSource;
 import sockjs.transports.Protocol;
 import sockjs.transports.WebSocket;
 import sockjs.transports.XHttpRequest;
@@ -21,6 +22,8 @@ public class SockJs {
     public static final String XHR_TRANSPORT_SEND = "xhr_send";
 
     public static final String XHR_TRANSPORT_STREAMING = "xhr_streaming";
+
+    public static final String EVENT_SOURCE = "eventsource";
 
     private static final EndpointInfo DEFAULT_INFO = new EndpointInfo();
 
@@ -45,6 +48,7 @@ public class SockJs {
         addTransport(XHR_TRANSPORT, xhr);
         addTransport(XHR_TRANSPORT_SEND, xhr);
         addTransport(XHR_TRANSPORT_STREAMING, xhr);
+        addTransport(EVENT_SOURCE, new EventSource(this));
     }
 
     public void addListener(String baseUrl, ConnectionListener listener) {
