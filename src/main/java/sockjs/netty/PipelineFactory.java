@@ -10,6 +10,7 @@ import org.jboss.netty.channel.DefaultChannelPipeline;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
+import org.jboss.netty.handler.stream.ChunkedWriteHandler;
 import sockjs.SockJs;
 
 public class PipelineFactory implements ChannelPipelineFactory {
@@ -26,7 +27,7 @@ public class PipelineFactory implements ChannelPipelineFactory {
         ChannelPipeline pipeline = new DefaultChannelPipeline();
 
         pipeline.addLast("decoder", new HttpRequestDecoder());
-        pipeline.addLast("aggregator", new HttpChunkAggregator(Short.MAX_VALUE));
+        //pipeline.addLast("aggregator", new HttpChunkAggregator(Short.MAX_VALUE));
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast("handler", new HttpHandler(sockJs));
 

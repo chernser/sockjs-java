@@ -27,15 +27,27 @@ public class XHttpRequest extends AbstractTransport {
 
     private static final HttpChunk HEARTBEAT_CHUNK;
 
+    private static final int PRELUDE_SIZE = 2048; // 2KiB
+
+    private static final HttpChunk PRELUDE_CHUNK;
+
     private static final HttpChunk CLOSE_CHUNK;
 
     static {
         ChannelBuffer heartbeatContent = ChannelBuffers
                 .copiedBuffer(Protocol.HEARTBEAT_FRAME + "\n", CharsetUtil.UTF_8);
         HEARTBEAT_CHUNK = new DefaultHttpChunk(heartbeatContent);
-        ChannelBuffer closeContent = ChannelBuffers.copiedBuffer(Protocol.CLOSE_FRAME + "\n",
-                CharsetUtil.UTF_8);
+        ChannelBuffer closeContent = ChannelBuffers
+                .copiedBuffer(Protocol.CLOSE_FRAME + "\n", CharsetUtil.UTF_8);
         CLOSE_CHUNK = new DefaultHttpChunk(closeContent);
+
+        ChannelBuffer preludeBuffer = ChannelBuffers.buffer(PRELUDE_SIZE + 1);
+        char preludeChar = Protocol.HEARTBEAT_FRAME.charAt(0);
+        for (int i = 0; i < PRELUDE_SIZE; i++) {
+            preludeBuffer.writeByte(preludeChar);
+        }
+        preludeBuffer.writeByte('\n');
+        PRELUDE_CHUNK = new DefaultHttpChunk(preludeBuffer);
     }
 
     public XHttpRequest(SockJs sockJs) {
@@ -70,63 +82,18 @@ public class XHttpRequest extends AbstractTransport {
 
     @Override
     public void close(Channel channel) {
-        channel.write(CLOSE_CHUNK).addListener(ChannelFutureListener.CLOSE);
-    }
-
-    private void handleStreaming(ChannelHandlerContext ctx, HttpRequest httpRequest) {
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.OK);
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
-
-        String origin = httpRequest.getHeader(HttpHeaders.Names.ORIGIN);
-        if (origin != null) {
-            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
-        } else {
-            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-        }
-
-        response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate," +
-                "" + " max-age=0");
-        response.setHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
-        response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
-        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/javascript; charset=UTF-8");
-
-        ctx.getChannel().write(response).addListener(new ChannelFutureListener() {
+        channel.write(CLOSE_CHUNK).addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future)
                     throws Exception {
-                HttpChunk chunk = new DefaultHttpChunk(ChannelBuffers
-                        .copiedBuffer("o\n", CharsetUtil.UTF_8));
 
-                SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(future
-                        .getChannel());
-                if (sockJsHandlerContext != null) {
-                    Connection connection = sockJsHandlerContext.getConnection();
-                    if (connection == null) {
-                        connection = getSockJs()
-                                .createConnection(sockJsHandlerContext.getBaseUrl(),
-                                        sockJsHandlerContext.getSessionId());
-                    }
-
-                    connection.setChannel(future.getChannel());
-                    connection.setTransport(XHttpRequest.this);
-
-
-                    final Connection newConnection = connection;
-                    future.getChannel().write(chunk).addListener(new ChannelFutureListener() {
-                        @Override
-                        public void operationComplete(ChannelFuture future)
-                                throws Exception {
-
-                            getSockJs().notifyListenersAboutNewConnection(newConnection);
-
-
-                        }
-                    });
-
-                }
             }
         });
+    }
+
+    private void handleStreaming(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+        HttpResponse response = createStreamingResponse(ctx, httpRequest);
+        ctx.getChannel().write(response).addListener(new SendPreludeListener(new SendOpen()));
     }
 
     private void handleSend(ChannelHandlerContext ctx, HttpRequest httpRequest) {
@@ -146,7 +113,8 @@ public class XHttpRequest extends AbstractTransport {
             }
         }
 
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
+        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
+                HttpResponseStatus.NO_CONTENT);
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
         String origin = httpRequest.getHeader(HttpHeaders.Names.ORIGIN);
         if (origin != null) {
@@ -158,8 +126,82 @@ public class XHttpRequest extends AbstractTransport {
         response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate," +
                 "" + " max-age=0");
         response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
-        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=UTF-8");
+        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain;charset=UTF-8");
 
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+    }
+
+    private static HttpResponse createStreamingResponse(ChannelHandlerContext ctx,
+                                                        HttpRequest httpRequest) {
+        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
+                HttpResponseStatus.OK);
+        //response.setChunked(true);
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
+
+        String origin = httpRequest.getHeader(HttpHeaders.Names.ORIGIN);
+        if (origin != null) {
+            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+        } else {
+            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        }
+
+        response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate," +
+                "" + " max-age=0");
+        response.setHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
+        response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
+        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/javascript;charset=UTF-8");
+
+        return response;
+    }
+
+    private class SendPreludeListener implements ChannelFutureListener {
+
+        private ChannelFutureListener nextListener;
+
+        private SendPreludeListener(ChannelFutureListener nextListener) {
+            this.nextListener = nextListener;
+        }
+
+        @Override
+        public void operationComplete(ChannelFuture future)
+                throws Exception {
+            log.info("Sending prelude");
+            future.getChannel().write(PRELUDE_CHUNK).addListener(nextListener);
+        }
+    }
+
+    private class SendOpen implements ChannelFutureListener {
+        @Override
+        public void operationComplete(ChannelFuture future)
+                throws Exception {
+            log.info("Sending open");
+            HttpChunk chunk = new DefaultHttpChunk(ChannelBuffers
+                    .copiedBuffer("o\n", CharsetUtil.UTF_8));
+
+            SockJsHandlerContext sockJsHandlerContext = XHttpRequest.this
+                    .getSockJsHandlerContext(future.getChannel());
+            if (sockJsHandlerContext != null) {
+                Connection connection = sockJsHandlerContext.getConnection();
+                if (connection == null) {
+                    connection = XHttpRequest.this.getSockJs().createConnection(sockJsHandlerContext
+                            .getBaseUrl(), sockJsHandlerContext.getSessionId());
+                }
+
+                connection.setChannel(future.getChannel());
+                connection.setTransport(XHttpRequest.this);
+
+
+                final Connection newConnection = connection;
+                future.getChannel().write(chunk).addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture future)
+                            throws Exception {
+                        XHttpRequest.this.getSockJs()
+                                .notifyListenersAboutNewConnection(newConnection);
+                    }
+                });
+
+            }
+        }
     }
 }
