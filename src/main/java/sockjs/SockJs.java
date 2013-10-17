@@ -5,6 +5,7 @@
 package sockjs;
 
 import org.jboss.netty.channel.Channel;
+import sockjs.transports.Protocol;
 import sockjs.transports.WebSocket;
 import sockjs.transports.XHttpRequest;
 
@@ -30,6 +31,8 @@ public class SockJs {
     private ConcurrentHashMap<String, EndpointInfo> endpointInfos;
 
     private Map<String, Transport> transports;
+
+    private int maxStreamSize = 128 * 1024; // 128KiB
 
     public SockJs() {
         listeners = new ConcurrentHashMap<String, Set<ConnectionListener>>();
@@ -155,6 +158,17 @@ public class SockJs {
 
     public void setEndpointInfo(String endpoint,EndpointInfo info) {
         endpointInfos.put(endpoint, info);
+    }
+
+    public int getMaxStreamSize() {
+        return maxStreamSize;
+    }
+
+    public void setMaxStreamSize(int maxStreamSize) {
+        if (maxStreamSize < Protocol.PRELUDE_SIZE) {
+            throw new IllegalArgumentException("max stream size can not be smaller 2KiB");
+        }
+        this.maxStreamSize = maxStreamSize;
     }
 
     private void addTransport(String shortName, Transport transport) {

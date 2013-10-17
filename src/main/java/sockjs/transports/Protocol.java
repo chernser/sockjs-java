@@ -22,6 +22,8 @@ public class Protocol {
 
     public static final String DATA_FRAME = "a";
 
+    public static final int PRELUDE_SIZE = 2048; // 2KiB
+
     public static final TextWebSocketFrame WEB_SOCKET_OPEN_FRAME;
 
     public static final TextWebSocketFrame WEB_SOCKET_HEARTBEAT_FRAME;
@@ -29,7 +31,7 @@ public class Protocol {
     private static final ObjectMapper jsonObjectMapper;
 
     public enum CloseReason {
-        NORMAL("c[3000, \"Go away!\"]"),
+        NORMAL("c[3000,\"Go away!\"]"),
         ALREADY_OPENED("c[2010,\"Another connection still open\"]"),
         INTERRUPTED("c[1002,\"Connection interrupted\"]");
 

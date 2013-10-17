@@ -6,7 +6,6 @@ package sockjs.transports;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -26,8 +25,6 @@ public class XHttpRequest extends AbstractTransport {
 
     private static final HttpChunk HEARTBEAT_CHUNK;
 
-    private static final int PRELUDE_SIZE = 2048; // 2KiB
-
     private static final HttpChunk PRELUDE_CHUNK;
 
     private final ChannelFutureListener SEND_OPEN;
@@ -41,9 +38,9 @@ public class XHttpRequest extends AbstractTransport {
                 .copiedBuffer(Protocol.HEARTBEAT_FRAME + "\n", CharsetUtil.UTF_8);
         HEARTBEAT_CHUNK = new DefaultHttpChunk(heartbeatContent);
 
-        ChannelBuffer preludeBuffer = ChannelBuffers.buffer(PRELUDE_SIZE + 1);
+        ChannelBuffer preludeBuffer = ChannelBuffers.buffer(Protocol.PRELUDE_SIZE + 1);
         char preludeChar = Protocol.HEARTBEAT_FRAME.charAt(0);
-        for (int i = 0; i < PRELUDE_SIZE; i++) {
+        for (int i = 0; i < Protocol.PRELUDE_SIZE; i++) {
             preludeBuffer.writeByte(preludeChar);
         }
         preludeBuffer.writeByte('\n');
@@ -68,25 +65,36 @@ public class XHttpRequest extends AbstractTransport {
             } else if (httpRequest.getUri().endsWith("/xhr_send")) {
                 handleSend(ctx, httpRequest);
             }
+        } else if (httpRequest.getMethod() == HttpMethod.OPTIONS) {
+                HttpHelpers.sendOptions(ctx, httpRequest, "OPTIONS, POST");
+                return;
         }
     }
 
     @Override
-    public void sendHeartbeat(Channel channel) {
-        channel.write(HEARTBEAT_CHUNK);
+    public void sendHeartbeat(Connection connection) {
+        connection.getChannel().write(HEARTBEAT_CHUNK);
     }
 
     @Override
-    public void sendMessage(Channel channel, Message message) {
+    public void sendMessage(Connection connection, Message message) {
+
+
         ChannelBuffer content = ChannelBuffers
                 .copiedBuffer(Protocol.encodeMessageToString(message) + "\n", CharsetUtil.UTF_8);
-        channel.write(new DefaultHttpChunk(content));
-        log.info("Message sent: " + message.getPayload());
+        ChannelFuture writeFuture = connection.getChannel().write(new DefaultHttpChunk(content));
+        connection.incSentBytes(content.readableBytes());
+
+        if (connection.getSentBytes() > getSockJs().getMaxStreamSize()) {
+            log.info("closing long lasting connection");
+            writeFuture.addListener(SEND_LAST_CHUNK);
+        }
+
     }
 
     @Override
-    public void close(Channel channel, Protocol.CloseReason reason) {
-        channel.write(reason.httpChunk).addListener(SEND_LAST_CHUNK);
+    public void close(Connection connection, Protocol.CloseReason reason) {
+        connection.getChannel().write(reason.httpChunk).addListener(SEND_LAST_CHUNK);
     }
 
     private void handleStreaming(ChannelHandlerContext ctx, HttpRequest httpRequest) {

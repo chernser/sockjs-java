@@ -66,9 +66,28 @@ public class HttpHelpers {
     public static void sendError(ChannelHandlerContext ctx, HttpResponseStatus status, String body) {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, status);
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=utf8");
+        response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, body.length());
         response.setContent(ChannelBuffers.copiedBuffer(body, CharsetUtil.UTF_8));
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, true);
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+    }
+
+    public static void sendOptions(ChannelHandlerContext ctx, HttpRequest req, String allowedMethods) {
+        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, true);
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_METHODS, allowedMethods);
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_MAX_AGE, HttpHelpers.YEAR_IN_SEC);
+
+        String origin = req.getHeader(HttpHeaders.Names.ORIGIN);
+        if (origin == null || origin.equals("null") || origin.isEmpty()) {
+            origin = "*";
+        }
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+        response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "public, max-age=31536000");
+        String expires = new Date(System.currentTimeMillis() + (HttpHelpers.YEAR_IN_SEC * 1000L)).toString();
+        response.setHeader(HttpHeaders.Names.EXPIRES, expires);
+
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 

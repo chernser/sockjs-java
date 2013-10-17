@@ -44,10 +44,6 @@ public class HttpHandler extends SimpleChannelHandler {
     }
 
     private void handleRequest(ChannelHandlerContext ctx, HttpRequest req) {
-        if (req.getMethod() == HttpMethod.OPTIONS) {
-            sendOptions(ctx, req);
-            return;
-        }
 
         if (!sockJs.hasListenerForRoute(req.getUri())) {
             HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);
@@ -65,8 +61,12 @@ public class HttpHandler extends SimpleChannelHandler {
         }
 
         String baseUrl = sockJs.getBaseUrl(req.getUri());
-        if (req.getUri().endsWith("/info") && req.getMethod() == HttpMethod.GET) {
-            sendInfo(ctx, baseUrl);
+        if (req.getUri().endsWith("/info")) {
+            if (req.getMethod() == HttpMethod.GET) {
+                sendInfo(ctx, baseUrl);
+            } else if (req.getMethod() == HttpMethod.OPTIONS) {
+                HttpHelpers.sendOptions(ctx, req, "OPTIONS, GET");
+            }
             return;
         }
 
@@ -111,24 +111,6 @@ public class HttpHandler extends SimpleChannelHandler {
 
         response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, GREETING.length());
         response.setContent(ChannelBuffers.copiedBuffer(GREETING, CharsetUtil.UTF_8));
-
-        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
-    }
-
-    private void sendOptions(ChannelHandlerContext ctx, HttpRequest req) {
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, credentialAllowed);
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_METHODS, "OPTIONS, GET");
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_MAX_AGE, HttpHelpers.YEAR_IN_SEC);
-
-        String origin = req.getHeader(HttpHeaders.Names.ORIGIN);
-        if (origin == null || origin.equals("null") || origin.isEmpty()) {
-            origin = "*";
-        }
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
-        response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "public, max-age=31536000");
-        String expires = new Date(System.currentTimeMillis() + (HttpHelpers.YEAR_IN_SEC * 1000L)).toString();
-        response.setHeader(HttpHeaders.Names.EXPIRES, expires);
 
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }

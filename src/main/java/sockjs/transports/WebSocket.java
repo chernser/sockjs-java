@@ -81,26 +81,28 @@ public class WebSocket extends AbstractTransport {
     }
 
     @Override
-    public void sendHeartbeat(Channel channel) {
-        channel.write(Protocol.WEB_SOCKET_HEARTBEAT_FRAME);
+    public void sendHeartbeat(Connection connection) {
+        connection.getChannel().write(Protocol.WEB_SOCKET_HEARTBEAT_FRAME);
     }
 
     @Override
-    public void sendMessage(Channel channel, Message message) {
-        channel.write(Protocol.encodeMessageToWebSocketFrame(message));
+    public void sendMessage(Connection connection, Message message) {
+        connection.getChannel().write(Protocol.encodeMessageToWebSocketFrame(message));
     }
 
     @Override
-    public void close(Channel channel, Protocol.CloseReason reason) {
-        channel.write(reason.webSocketFrame).addListener(ChannelFutureListener.CLOSE);
+    public void close(Connection connection, Protocol.CloseReason reason) {
+        connection.getChannel().write(reason.webSocketFrame).addListener(ChannelFutureListener.CLOSE);
     }
 
     private boolean isWebSocketUpgrade(HttpRequest httpRequest) {
-        return "WebSocket".compareToIgnoreCase(httpRequest.getHeader(HttpHeaders.Names.UPGRADE)) == 0;
+        String upgradeHeader = httpRequest.getHeader(HttpHeaders.Names.UPGRADE);
+        return upgradeHeader != null && "WebSocket".compareToIgnoreCase(upgradeHeader) == 0;
     }
 
     private boolean isValidConnectionHeader(HttpRequest httpRequest) {
-        return "Upgrade".compareToIgnoreCase(httpRequest.getHeader(HttpHeaders.Names.CONNECTION)) == 0;
+        String connectionHeader = httpRequest.getHeader(HttpHeaders.Names.CONNECTION);
+        return connectionHeader != null && "Upgrade".compareToIgnoreCase(connectionHeader) == 0;
     }
 
     private static String getWebSocketLocation(HttpRequest req, String path) {

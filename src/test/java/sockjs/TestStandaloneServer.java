@@ -16,6 +16,7 @@ public class TestStandaloneServer {
         log.info("Starting standalone server ");
 
         SockJs sockJs = new SockJs();
+        sockJs.setMaxStreamSize(4096);
         EndpointInfo chatEndpointInfo = new EndpointInfo();
         chatEndpointInfo.setWebSocketEnabled(false);
         sockJs.setEndpointInfo("/chat", chatEndpointInfo);

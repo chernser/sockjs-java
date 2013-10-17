@@ -12,9 +12,9 @@ public interface Transport {
 
     void handle(ChannelHandlerContext ctx, WebSocketFrame webSocketFrame);
 
-    void sendHeartbeat(Channel channel);
+    void sendHeartbeat(Connection connection);
 
-    void sendMessage(Channel channel, Message message);
+    void sendMessage(Connection connection, Message message);
 
-    void close(Channel channel, Protocol.CloseReason reason);
+    void close(Connection connection, Protocol.CloseReason reason);
 }

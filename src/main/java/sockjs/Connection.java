@@ -12,6 +12,7 @@ import sockjs.transports.Protocol;
 
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Connection {
 
@@ -31,10 +32,13 @@ public class Connection {
 
     private final String baseUrl;
 
+    private AtomicInteger sentBytes;
+
     public Connection(SockJs sockJs, String baseUrl) {
         this.sockJs = sockJs;
         this.baseUrl = baseUrl;
         this.id = UUID.randomUUID().toString();
+        this.sentBytes = new AtomicInteger();
     }
 
     public void setChannel(Channel channel) {
@@ -83,7 +87,7 @@ public class Connection {
     }
 
     public void sendToChannel(Message message) {
-        transport.sendMessage(getChannel(), message);
+        transport.sendMessage(this, message);
     }
 
     public void sendToListeners(Message message) {
@@ -91,7 +95,15 @@ public class Connection {
     }
 
     public void close() {
-        transport.close(getChannel(), Protocol.CloseReason.NORMAL);
+        transport.close(this, Protocol.CloseReason.NORMAL);
+    }
+
+    public int getSentBytes() {
+        return sentBytes.intValue();
+    }
+
+    public void incSentBytes(int byValue) {
+        sentBytes.addAndGet(byValue);
     }
 
     private static void startHeartbeat(final Connection connection, final Transport transport) {
@@ -101,7 +113,7 @@ public class Connection {
             public void run(Timeout timeout)
                     throws Exception {
                 if (connection.isKeepSendingHeartbeat() && connection.getChannel().isWritable()) {
-                    transport.sendHeartbeat(connection.getChannel());
+                    transport.sendHeartbeat(connection);
                     heartbeatTimer.newTimeout(this, connection
                             .getHeartbeatIntervalSec(), TimeUnit.SECONDS);
                 }
