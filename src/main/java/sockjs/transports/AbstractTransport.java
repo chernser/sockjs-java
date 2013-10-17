@@ -4,16 +4,21 @@
  */
 package sockjs.transports;
 
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import sockjs.SockJs;
 import sockjs.Transport;
 import sockjs.netty.HttpHelpers;
+import sockjs.netty.SockJsCloseEvent;
 import sockjs.netty.SockJsHandlerContext;
+import sockjs.netty.SockJsSendEvent;
 
-public abstract class AbstractTransport implements Transport {
+public abstract class AbstractTransport extends SimpleChannelHandler implements Transport {
+
+    private static final Logger log = LoggerFactory.getLogger(AbstractTransport.class);
 
     private final SockJs sockJs;
 
@@ -26,13 +31,34 @@ public abstract class AbstractTransport implements Transport {
     }
 
     @Override
-    public void handle(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+    public void messageReceived(ChannelHandlerContext ctx, MessageEvent e)
+            throws Exception {
+        Object msg = e.getMessage();
+        if (msg instanceof HttpRequest) {
+            handleHttpRequest(ctx, (HttpRequest) msg);
+        } else if (msg instanceof SockJsCloseEvent) {
+            SockJsCloseEvent se = (SockJsCloseEvent)msg;
+            handleCloseRequest(se.getConnection(), se.getReason());
+        } else if (msg instanceof SockJsSendEvent) {
+            SockJsSendEvent se = (SockJsSendEvent)msg;
+            sendMessage(se.getConnection(), se.getPayload());
+        }
+    }
+
+    @Override
+    public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_IMPLEMENTED);
     }
 
     @Override
     public void handle(ChannelHandlerContext ctx, WebSocketFrame webSocketFrame) {
         HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_IMPLEMENTED);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e)
+            throws Exception {
+        log.error("Exception in transport: ", e.getCause());
     }
 
     protected SockJsHandlerContext getSockJsHandlerContext(Channel channel) {

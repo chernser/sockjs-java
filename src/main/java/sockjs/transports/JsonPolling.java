@@ -9,6 +9,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
@@ -29,7 +30,6 @@ public class JsonPolling extends AbstractTransport {
 
     static {
         SEND_LAST_CHUNK = new SendLastChunk();
-
     }
 
     public JsonPolling(SockJs sockJs) {
@@ -37,7 +37,7 @@ public class JsonPolling extends AbstractTransport {
     }
 
     @Override
-    public void handle(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+    public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         if (httpRequest.getMethod() == HttpMethod.GET) {
             handleJsonPolling(ctx, httpRequest);
         } else if (httpRequest.getMethod() == HttpMethod.POST) {
@@ -51,7 +51,7 @@ public class JsonPolling extends AbstractTransport {
     }
 
     @Override
-    public void sendMessage(Connection connection, Message message) {
+    public void sendMessage(Connection connection, String message) {
         ChannelBuffer content = ChannelBuffers.copiedBuffer(connection.getJsonpCallback() + "(\"" +
                 Protocol.encodeMessageToString(message) + "\");\r\n", CharsetUtil.UTF_8);
 
@@ -65,7 +65,7 @@ public class JsonPolling extends AbstractTransport {
     }
 
     @Override
-    public void close(Connection connection, Protocol.CloseReason reason) {
+    public void handleCloseRequest(Connection connection, Protocol.CloseReason reason) {
         ChannelBuffer content = ChannelBuffers.copiedBuffer(Protocol
                 .encodeJsonpClose(reason, connection.getJsonpCallback()), CharsetUtil.UTF_8);
         connection.getChannel().write(new DefaultHttpChunk(content)).addListener(SEND_LAST_CHUNK);
@@ -164,7 +164,6 @@ public class JsonPolling extends AbstractTransport {
                 }
 
                 connection.setChannel(future.getChannel());
-                connection.setTransport(JsonPolling.this);
                 connection.setJsonpCallback(sockJsHandlerContext.getJsonpCallback());
 
 

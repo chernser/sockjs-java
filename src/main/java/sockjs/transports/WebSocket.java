@@ -38,7 +38,7 @@ public class WebSocket extends AbstractTransport {
     }
 
     @Override
-    public void handle(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+    public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         if (isWebSocketUpgrade(httpRequest)) {
             if (!isValidConnectionHeader(httpRequest)) {
                 HttpHelpers.sendError(ctx, HttpResponseStatus.BAD_REQUEST, ERR_INCORRECT_UPGRADE);
@@ -86,12 +86,12 @@ public class WebSocket extends AbstractTransport {
     }
 
     @Override
-    public void sendMessage(Connection connection, Message message) {
+    public void sendMessage(Connection connection, String message) {
         connection.getChannel().write(Protocol.encodeMessageToWebSocketFrame(message));
     }
 
     @Override
-    public void close(Connection connection, Protocol.CloseReason reason) {
+    public void handleCloseRequest(Connection connection, Protocol.CloseReason reason) {
         connection.getChannel().write(reason.webSocketFrame).addListener(ChannelFutureListener.CLOSE);
     }
 
@@ -119,7 +119,6 @@ public class WebSocket extends AbstractTransport {
                 Connection connection = getSockJs().createConnection(sockJsHandlerContext.getBaseUrl(),
                                                                      sockJsHandlerContext.getSessionId());
                 connection.setChannel(future.getChannel());
-                connection.setTransport(WebSocket.this);
                 connection.startHeartbeat();
                 sockJsHandlerContext.setConnection(connection);
                 WebSocket.this.getSockJs().notifyListenersAboutNewConnection(connection);

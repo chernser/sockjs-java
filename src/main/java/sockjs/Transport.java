@@ -8,13 +8,13 @@ import sockjs.transports.Protocol;
 
 public interface Transport {
 
-    void handle(ChannelHandlerContext ctx, HttpRequest httpRequest);
+    void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest);
 
     void handle(ChannelHandlerContext ctx, WebSocketFrame webSocketFrame);
 
     void sendHeartbeat(Connection connection);
 
-    void sendMessage(Connection connection, Message message);
+    void sendMessage(Connection connection, String message);
 
-    void close(Connection connection, Protocol.CloseReason reason);
+    void handleCloseRequest(Connection connection, Protocol.CloseReason reason);
 }

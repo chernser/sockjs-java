@@ -14,11 +14,9 @@ public class ProtocolTest {
     @Test
     public void encodeMessage() {
 
-        Message msg1 = new Message("test");
-        assertEquals("a[\"test\"]", Protocol.encodeMessageToString(msg1));
+        assertEquals("a[\"test\"]", Protocol.encodeMessageToString("test"));
 
-        Message msg2 = new Message("{\"value\": 123}");
-        assertEquals("a[\"{\\\"value\\\": 123}\"]", Protocol.encodeMessageToString(msg2));
+        assertEquals("a[\"{\\\"value\\\": 123}\"]", Protocol.encodeMessageToString("test"));
     }
 
     @Test

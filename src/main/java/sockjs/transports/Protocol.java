@@ -14,6 +14,8 @@ import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.jboss.netty.util.CharsetUtil;
 import sockjs.Message;
 
+import java.util.Collection;
+
 public class Protocol {
 
     public static final String OPEN_FRAME = "o";
@@ -54,9 +56,18 @@ public class Protocol {
         jsonObjectMapper = new ObjectMapper();
     }
 
-    public static String encodeMessageToString(Message message) {
+    public static String encodeMessagesToString(Collection<Message> messages) {
         try {
-            String encodedPayload = jsonObjectMapper.writeValueAsString(message.getPayload());
+            String encodedPayload = jsonObjectMapper.writeValueAsString(messages);
+            return String.format("a[%s]", encodedPayload);
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    public static String encodeMessageToString(String payload) {
+        try {
+            String encodedPayload = jsonObjectMapper.writeValueAsString(payload);
             return String.format("a[%s]", encodedPayload);
         } catch (Exception ex) {
             throw new RuntimeException(ex);
@@ -72,7 +83,7 @@ public class Protocol {
         }
     }
 
-    public static TextWebSocketFrame encodeMessageToWebSocketFrame(Message message) {
+    public static TextWebSocketFrame encodeMessageToWebSocketFrame(String message) {
         return new TextWebSocketFrame(encodeMessageToString(message));
     }
 

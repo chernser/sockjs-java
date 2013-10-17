@@ -39,7 +39,7 @@ public class EventSource extends AbstractTransport {
     }
 
     @Override
-    public void handle(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+    public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         if (httpRequest.getMethod() == HttpMethod.GET) {
             handleNewRequest(ctx, httpRequest);
         }
@@ -51,7 +51,7 @@ public class EventSource extends AbstractTransport {
     }
 
     @Override
-    public void sendMessage(Connection connection, Message message) {
+    public void sendMessage(Connection connection, String message) {
         ChannelBuffer content = ChannelBuffers.copiedBuffer("data: " + Protocol
                 .encodeMessageToString(message) + "\r\n\r\n", CharsetUtil.UTF_8);
         ChannelFuture writeFuture = connection.getChannel().write(new DefaultHttpChunk(content));
@@ -64,7 +64,7 @@ public class EventSource extends AbstractTransport {
     }
 
     @Override
-    public void close(Connection connection, Protocol.CloseReason reason) {
+    public void handleCloseRequest(Connection connection, Protocol.CloseReason reason) {
         connection.getChannel().close();
     }
 
@@ -136,8 +136,6 @@ public class EventSource extends AbstractTransport {
                 }
 
                 connection.setChannel(future.getChannel());
-                connection.setTransport(EventSource.this);
-
 
                 final Connection newConnection = connection;
                 future.getChannel().write(chunk).addListener(new ChannelFutureListener() {

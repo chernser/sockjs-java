@@ -5,20 +5,24 @@
 package sockjs;
 
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelState;
+import org.jboss.netty.channel.UpstreamChannelStateEvent;
+import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.Timeout;
 import org.jboss.netty.util.TimerTask;
+import sockjs.netty.SockJsCloseEvent;
+import sockjs.netty.SockJsSendEvent;
 import sockjs.transports.Protocol;
 
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Connection {
 
     private Channel channel;
-
-    private Transport transport;
 
     private static HashedWheelTimer heartbeatTimer = new HashedWheelTimer();
 
@@ -36,11 +40,14 @@ public class Connection {
 
     private String jsonpCallback = null;
 
+    private ConcurrentLinkedQueue<Message> messages;
+
     public Connection(SockJs sockJs, String baseUrl) {
         this.sockJs = sockJs;
         this.baseUrl = baseUrl;
         this.id = UUID.randomUUID().toString();
         this.sentBytes = new AtomicInteger();
+        this.messages = new ConcurrentLinkedQueue<Message>();
     }
 
     public void setChannel(Channel channel) {
@@ -67,14 +74,6 @@ public class Connection {
         return id;
     }
 
-    public Transport getTransport() {
-        return transport;
-    }
-
-    public void setTransport(Transport transport) {
-        this.transport = transport;
-    }
-
     public String getBaseUrl() {
         return baseUrl;
     }
@@ -85,11 +84,14 @@ public class Connection {
 
     public void startHeartbeat() {
         setKeepSendingHeartbeat(true);
-        startHeartbeat(this, transport);
+        startHeartbeat(this);
     }
 
     public void sendToChannel(Message message) {
-        transport.sendMessage(this, message);
+        getChannel().getPipeline()
+                .sendUpstream(new UpstreamMessageEvent(getChannel(), new SockJsSendEvent(this,
+                        message
+                        .getPayload()), getChannel().getRemoteAddress()));
     }
 
     public void sendToListeners(Message message) {
@@ -97,7 +99,10 @@ public class Connection {
     }
 
     public void close() {
-        transport.close(this, Protocol.CloseReason.NORMAL);
+        getChannel().getPipeline()
+                .sendUpstream(new UpstreamMessageEvent(getChannel(), new SockJsCloseEvent(this,
+                        Protocol.CloseReason.NORMAL), getChannel()
+                        .getRemoteAddress()));
     }
 
     public int getSentBytes() {
@@ -120,14 +125,17 @@ public class Connection {
         this.jsonpCallback = jsonpCallback;
     }
 
-    private static void startHeartbeat(final Connection connection, final Transport transport) {
+    public Message pollMessage() {
+        return messages.poll();
+    }
+    private static void startHeartbeat(final Connection connection) {
 
         TimerTask timerTask = new TimerTask() {
             @Override
             public void run(Timeout timeout)
                     throws Exception {
                 if (connection.isKeepSendingHeartbeat() && connection.getChannel().isWritable()) {
-                    transport.sendHeartbeat(connection);
+                    // TODO: send heartbeat event
                     heartbeatTimer.newTimeout(this, connection
                             .getHeartbeatIntervalSec(), TimeUnit.SECONDS);
                 }

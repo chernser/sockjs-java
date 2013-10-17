@@ -57,7 +57,7 @@ public class XHttpRequest extends AbstractTransport {
 
 
     @Override
-    public void handle(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+    public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         log.info("Handling new request: " + httpRequest.getUri());
         if (httpRequest.getMethod() == HttpMethod.POST) {
             if (httpRequest.getUri().endsWith("/xhr_streaming")) {
@@ -77,7 +77,7 @@ public class XHttpRequest extends AbstractTransport {
     }
 
     @Override
-    public void sendMessage(Connection connection, Message message) {
+    public void sendMessage(Connection connection, String message) {
 
 
         ChannelBuffer content = ChannelBuffers
@@ -93,7 +93,7 @@ public class XHttpRequest extends AbstractTransport {
     }
 
     @Override
-    public void close(Connection connection, Protocol.CloseReason reason) {
+    public void handleCloseRequest(Connection connection, Protocol.CloseReason reason) {
         connection.getChannel().write(reason.httpChunk).addListener(SEND_LAST_CHUNK);
     }
 
@@ -207,8 +207,6 @@ public class XHttpRequest extends AbstractTransport {
                 }
 
                 connection.setChannel(future.getChannel());
-                connection.setTransport(XHttpRequest.this);
-
 
                 final Connection newConnection = connection;
                 future.getChannel().write(chunk).addListener(new ChannelFutureListener() {

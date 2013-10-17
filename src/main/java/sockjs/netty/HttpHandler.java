@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sockjs.SockJs;
 import sockjs.Transport;
+import sockjs.transports.AbstractTransport;
 
 import java.util.Date;
 
@@ -75,7 +76,7 @@ public class HttpHandler extends SimpleChannelHandler {
             return;
         }
 
-        Transport transport = sockJs.getTransport(getTransport(req.getUri()));
+        AbstractTransport transport = (AbstractTransport)sockJs.getTransport(getTransport(req.getUri()));
         if (transport == null) {
             HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);
             return;
@@ -86,18 +87,23 @@ public class HttpHandler extends SimpleChannelHandler {
         sockJsHandlerContext.setBaseUrl(baseUrl);
         sockJsHandlerContext.setSessionId(sessionId);
         sockJsHandlerContext.setConnection(sockJs.getConnectionForSession(sessionId));
-        ctx.setAttachment(sockJsHandlerContext);
-        transport.handle(ctx, req);
+        ctx.getPipeline().replace(this, "handler", transport);
+        ctx.getPipeline().getContext("handler").setAttachment(sockJsHandlerContext);
+        ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(), req, ctx.getChannel().getRemoteAddress()));
     }
 
     private void handleFrame(ChannelHandlerContext ctx, WebSocketFrame frame) {
-        Transport transport = sockJs.getTransport(SockJs.WEBSOCKET_TRANSPORT);
+        AbstractTransport transport = (AbstractTransport)sockJs.getTransport(SockJs.WEBSOCKET_TRANSPORT);
         if (transport == null) {
             ctx.getChannel().close().addListener(ChannelFutureListener.CLOSE);
             return;
         }
 
-        transport.handle(ctx, frame);
+        SockJsHandlerContext sockJsHandlerContext = (SockJsHandlerContext)ctx.getAttachment();
+        ctx.getPipeline().replace(this, "handler", transport);
+        ctx.getPipeline().getContext("handler").setAttachment(sockJsHandlerContext);
+        ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(), frame, ctx.getChannel().getRemoteAddress()));
+
     }
 
     private void sendGreeting(ChannelHandlerContext ctx, HttpRequest req) {
