@@ -63,6 +63,15 @@ public class Protocol {
         }
     }
 
+    public static String encodeJsonpClose(CloseReason reason, String callback) {
+        try {
+            String encodedPayload = jsonObjectMapper.writeValueAsString(reason.frame);
+            return callback + String.format("(%s);\r\n\r\n", encodedPayload);
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
     public static TextWebSocketFrame encodeMessageToWebSocketFrame(Message message) {
         return new TextWebSocketFrame(encodeMessageToString(message));
     }

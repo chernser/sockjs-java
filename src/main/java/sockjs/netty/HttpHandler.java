@@ -130,7 +130,8 @@ public class HttpHandler extends SimpleChannelHandler {
     private String getTransport(String uri) {
         int lastSlashIndex = uri.lastIndexOf("/");
         if (lastSlashIndex > -1) {
-            return uri.substring(lastSlashIndex + 1);
+            int paramQSignIndex = uri.indexOf("?", lastSlashIndex);
+            return uri.substring(lastSlashIndex + 1, paramQSignIndex != -1 ? paramQSignIndex : uri.length());
         }
         return null;
     }

@@ -5,10 +5,7 @@
 package sockjs;
 
 import org.jboss.netty.channel.Channel;
-import sockjs.transports.EventSource;
-import sockjs.transports.Protocol;
-import sockjs.transports.WebSocket;
-import sockjs.transports.XHttpRequest;
+import sockjs.transports.*;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,6 +21,10 @@ public class SockJs {
     public static final String XHR_TRANSPORT_STREAMING = "xhr_streaming";
 
     public static final String EVENT_SOURCE = "eventsource";
+
+    public static final String JSON_POLLING = "jsonp";
+
+    public static final String JSON_POLLING_SEND = "jsonp_send";
 
     private static final EndpointInfo DEFAULT_INFO = new EndpointInfo();
 
@@ -49,6 +50,9 @@ public class SockJs {
         addTransport(XHR_TRANSPORT_SEND, xhr);
         addTransport(XHR_TRANSPORT_STREAMING, xhr);
         addTransport(EVENT_SOURCE, new EventSource(this));
+        JsonPolling jsonp = new JsonPolling(this);
+        addTransport(JSON_POLLING, jsonp);
+        addTransport(JSON_POLLING_SEND, jsonp);
     }
 
     public void addListener(String baseUrl, ConnectionListener listener) {

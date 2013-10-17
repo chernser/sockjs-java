@@ -34,6 +34,8 @@ public class Connection {
 
     private AtomicInteger sentBytes;
 
+    private String jsonpCallback = null;
+
     public Connection(SockJs sockJs, String baseUrl) {
         this.sockJs = sockJs;
         this.baseUrl = baseUrl;
@@ -108,6 +110,14 @@ public class Connection {
 
     public void resetSentBytes() {
         sentBytes.set(0);
+    }
+
+    public String getJsonpCallback() {
+        return jsonpCallback;
+    }
+
+    public void setJsonpCallback(String jsonpCallback) {
+        this.jsonpCallback = jsonpCallback;
     }
 
     private static void startHeartbeat(final Connection connection, final Transport transport) {
