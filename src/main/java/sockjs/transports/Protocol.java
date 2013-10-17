@@ -6,7 +6,12 @@ package sockjs.transports;
 
 import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.handler.codec.http.DefaultHttpChunk;
+import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import org.jboss.netty.util.CharsetUtil;
 import sockjs.Message;
 
 public class Protocol {
@@ -15,22 +20,35 @@ public class Protocol {
 
     public static final String HEARTBEAT_FRAME = "h";
 
-    public static final String CLOSE_FRAME = "c[3000, \"Go away!\"]";
-
     public static final String DATA_FRAME = "a";
 
     public static final TextWebSocketFrame WEB_SOCKET_OPEN_FRAME;
 
     public static final TextWebSocketFrame WEB_SOCKET_HEARTBEAT_FRAME;
 
-    public static final TextWebSocketFrame WEB_SOCKET_CLOSE_FRAME;
-
     private static final ObjectMapper jsonObjectMapper;
+
+    public enum CloseReason {
+        NORMAL("c[3000, \"Go away!\"]"),
+        ALREADY_OPENED("c[2010,\"Another connection still open\"]"),
+        INTERRUPTED("c[1002,\"Connection interrupted\"]");
+
+        public final String frame;
+
+        public final TextWebSocketFrame webSocketFrame;
+
+        public final HttpChunk httpChunk;
+
+        private CloseReason(String frame) {
+            this.frame = frame;
+            webSocketFrame = new TextWebSocketFrame(frame);
+            httpChunk = new DefaultHttpChunk(ChannelBuffers.copiedBuffer(frame + "\n", CharsetUtil.UTF_8));
+        }
+    }
 
     static {
         WEB_SOCKET_HEARTBEAT_FRAME = new TextWebSocketFrame(HEARTBEAT_FRAME);
         WEB_SOCKET_OPEN_FRAME = new TextWebSocketFrame(OPEN_FRAME);
-        WEB_SOCKET_CLOSE_FRAME = new TextWebSocketFrame(CLOSE_FRAME);
         jsonObjectMapper = new ObjectMapper();
     }
 

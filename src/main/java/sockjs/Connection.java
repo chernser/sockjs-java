@@ -8,6 +8,7 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.Timeout;
 import org.jboss.netty.util.TimerTask;
+import sockjs.transports.Protocol;
 
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -90,7 +91,7 @@ public class Connection {
     }
 
     public void close() {
-        transport.close(getChannel());
+        transport.close(getChannel(), Protocol.CloseReason.NORMAL);
     }
 
     private static void startHeartbeat(final Connection connection, final Transport transport) {

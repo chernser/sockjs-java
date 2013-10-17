@@ -91,8 +91,8 @@ public class WebSocket extends AbstractTransport {
     }
 
     @Override
-    public void close(Channel channel) {
-        channel.write(Protocol.WEB_SOCKET_CLOSE_FRAME).addListener(ChannelFutureListener.CLOSE);
+    public void close(Channel channel, Protocol.CloseReason reason) {
+        channel.write(reason.webSocketFrame).addListener(ChannelFutureListener.CLOSE);
     }
 
     private boolean isWebSocketUpgrade(HttpRequest httpRequest) {

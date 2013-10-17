@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import sockjs.Connection;
 import sockjs.Message;
 import sockjs.SockJs;
-import sockjs.Transport;
 import sockjs.netty.HttpHelpers;
 import sockjs.netty.SockJsHandlerContext;
 
@@ -31,15 +30,16 @@ public class XHttpRequest extends AbstractTransport {
 
     private static final HttpChunk PRELUDE_CHUNK;
 
-    private static final HttpChunk CLOSE_CHUNK;
+    private final ChannelFutureListener SEND_OPEN;
+
+    private static final ChannelFutureListener SEND_LAST_CHUNK;
+
+    private static final ChannelFutureListener SEND_ALREADY_CONNECTED;
 
     static {
         ChannelBuffer heartbeatContent = ChannelBuffers
                 .copiedBuffer(Protocol.HEARTBEAT_FRAME + "\n", CharsetUtil.UTF_8);
         HEARTBEAT_CHUNK = new DefaultHttpChunk(heartbeatContent);
-        ChannelBuffer closeContent = ChannelBuffers
-                .copiedBuffer(Protocol.CLOSE_FRAME + "\n", CharsetUtil.UTF_8);
-        CLOSE_CHUNK = new DefaultHttpChunk(closeContent);
 
         ChannelBuffer preludeBuffer = ChannelBuffers.buffer(PRELUDE_SIZE + 1);
         char preludeChar = Protocol.HEARTBEAT_FRAME.charAt(0);
@@ -48,10 +48,14 @@ public class XHttpRequest extends AbstractTransport {
         }
         preludeBuffer.writeByte('\n');
         PRELUDE_CHUNK = new DefaultHttpChunk(preludeBuffer);
+
+        SEND_LAST_CHUNK = new SendLastChunk();
+        SEND_ALREADY_CONNECTED = new SendCloseAlreadyConnected();
     }
 
     public XHttpRequest(SockJs sockJs) {
         super(sockJs);
+        SEND_OPEN = new SendOpen();
     }
 
 
@@ -81,19 +85,26 @@ public class XHttpRequest extends AbstractTransport {
     }
 
     @Override
-    public void close(Channel channel) {
-        channel.write(CLOSE_CHUNK).addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture future)
-                    throws Exception {
-
-            }
-        });
+    public void close(Channel channel, Protocol.CloseReason reason) {
+        channel.write(reason.httpChunk).addListener(SEND_LAST_CHUNK);
     }
 
     private void handleStreaming(ChannelHandlerContext ctx, HttpRequest httpRequest) {
-        HttpResponse response = createStreamingResponse(ctx, httpRequest);
-        ctx.getChannel().write(response).addListener(new SendPreludeListener(new SendOpen()));
+        SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx);
+        if (sockJsHandlerContext != null) {
+            HttpResponse response = createStreamingResponse(ctx, httpRequest);
+            ChannelFutureListener nextListener;
+            if (sockJsHandlerContext.getConnection() == null ||
+                !sockJsHandlerContext.getConnection().getChannel().isWritable()) {
+                nextListener = SEND_OPEN;
+            } else {
+                nextListener = SEND_ALREADY_CONNECTED;
+            }
+
+            ctx.getChannel().write(response).addListener(new SendPreludeListener(nextListener));
+        } else {
+            HttpHelpers.sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "Internal Server Error");
+        }
     }
 
     private void handleSend(ChannelHandlerContext ctx, HttpRequest httpRequest) {
@@ -202,6 +213,22 @@ public class XHttpRequest extends AbstractTransport {
                 });
 
             }
+        }
+    }
+
+    private static class SendLastChunk implements ChannelFutureListener {
+        @Override
+        public void operationComplete(ChannelFuture future)
+                throws Exception {
+            future.getChannel().write(HttpChunk.LAST_CHUNK).addListener(CLOSE);
+        }
+    }
+
+    private static class SendCloseAlreadyConnected implements  ChannelFutureListener {
+        @Override
+        public void operationComplete(ChannelFuture future)
+                throws Exception {
+            future.getChannel().write(Protocol.CloseReason.ALREADY_OPENED.httpChunk).addListener(SEND_LAST_CHUNK);
         }
     }
 }
