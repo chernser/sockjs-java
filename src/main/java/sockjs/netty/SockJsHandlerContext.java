@@ -14,8 +14,6 @@ public class SockJsHandlerContext {
 
     private String sessionId;
 
-    private String jsonpCallback;
-
     public String getBaseUrl() {
         return baseUrl;
     }
@@ -38,13 +36,5 @@ public class SockJsHandlerContext {
 
     public void setSessionId(String sessionId) {
         this.sessionId = sessionId;
-    }
-
-    public String getJsonpCallback() {
-        return jsonpCallback;
-    }
-
-    public void setJsonpCallback(String jsonpCallback) {
-        this.jsonpCallback = jsonpCallback;
     }
 }

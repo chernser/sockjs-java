@@ -74,6 +74,34 @@ public class Protocol {
         }
     }
 
+    public static String encodeToJSONString(String payload) {
+        try {
+            return jsonObjectMapper.writeValueAsString(payload);
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    public static String encodeToJSONString(String[] payload) {
+        try {
+            String encodedArray= jsonObjectMapper.writeValueAsString(payload);
+
+            String encodedPayload =  jsonObjectMapper.writeValueAsString(String.format("a%s", encodedArray));
+            return encodedPayload;
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    public static String encodeMessageToString(String[] payload) {
+            try {
+                String encodedPayload = jsonObjectMapper.writeValueAsString(payload);
+                return String.format("a%s", encodedPayload);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+    }
+
     public static String encodeJsonpClose(CloseReason reason, String callback) {
         try {
             String encodedPayload = jsonObjectMapper.writeValueAsString(reason.frame);
@@ -83,22 +111,18 @@ public class Protocol {
         }
     }
 
-    public static TextWebSocketFrame encodeMessageToWebSocketFrame(String message) {
+    public static TextWebSocketFrame encodeMessageToWebSocketFrame(String[] message) {
         return new TextWebSocketFrame(encodeMessageToString(message));
     }
 
-    public static Message[] decodeMessage(String message) {
-        Message[] messages = null;
+    public static String[] decodeMessage(String message) {
+        String[] messages = null;
         try {
             if (message.startsWith("[")) {
-                String[] payloads = jsonObjectMapper.readValue(message, String[].class);
-                messages = new Message[payloads.length];
-                for (int i = 0; i < payloads.length; i++) {
-                    messages[i] = new Message(payloads[i]);
-                }
+                return jsonObjectMapper.readValue(message, String[].class);
             } else if (message.startsWith("\"")) {
                 String payload = jsonObjectMapper.readValue(message, String.class);
-                messages = new Message[] { new Message(payload)};
+                return new String[] {payload};
             }
             return messages;
         } catch (JsonParseException ex) {

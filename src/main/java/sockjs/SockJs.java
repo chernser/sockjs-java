@@ -5,6 +5,7 @@
 package sockjs;
 
 import org.jboss.netty.channel.Channel;
+import sockjs.netty.SockJsHandlerContext;
 import sockjs.transports.*;
 
 import java.util.*;
@@ -110,7 +111,7 @@ public class SockJs {
         return null;
     }
 
-    public void notifyListeners(Connection connection, Message message) {
+    public void notifyListeners(Connection connection, String message) {
         Collection<ConnectionListener> connectionListeners = listeners.get(connection.getBaseUrl());
 
         if (connectionListeners != null) {
@@ -150,9 +151,9 @@ public class SockJs {
         return transports.get(shortName);
     }
 
-    public Connection createConnection(String baseUrl, String sessionId) {
-        Connection connection = new Connection(this, baseUrl);
-        sessionConnections.put(sessionId, connection);
+    public Connection createConnection(SockJsHandlerContext handlerContext) {
+        Connection connection = new Connection(this, handlerContext.getBaseUrl());
+        sessionConnections.put(handlerContext.getSessionId(), connection);
         return connection;
     }
 

@@ -6,5 +6,5 @@ public interface ConnectionListener {
 
     void onClose(Connection connection);
 
-    void onMessage(Connection connection, Message message);
+    void onMessage(Connection connection, String message);
 }

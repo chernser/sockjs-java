@@ -7,6 +7,7 @@ package sockjs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sockjs.netty.StandaloneServer;
+import sockjs.transports.Protocol;
 
 public class TestStandaloneServer {
 
@@ -51,9 +52,8 @@ public class TestStandaloneServer {
         }
 
         @Override
-        public void onMessage(Connection connection, Message message) {
-            log.info("message from connection: " + connection.getId() + " {" + message
-                    .getPayload() + "}");
+        public void onMessage(Connection connection, String message) {
+            log.info("message from connection: " + connection.getId() + " {" + message + "}");
             connection.sendToChannel(message);
         }
     }
@@ -61,7 +61,7 @@ public class TestStandaloneServer {
     private static class CloseListener implements  ConnectionListener {
         @Override
         public void onOpen(Connection connection) {
-            connection.close();
+            connection.setCloseReason(Protocol.CloseReason.NORMAL);
         }
 
         @Override
@@ -70,7 +70,7 @@ public class TestStandaloneServer {
         }
 
         @Override
-        public void onMessage(Connection connection, Message message) {
+        public void onMessage(Connection connection, String message) {
 
         }
     }

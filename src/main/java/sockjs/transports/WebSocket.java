@@ -71,9 +71,9 @@ public class WebSocket extends AbstractTransport {
         }
 
         if (webSocketFrame instanceof TextWebSocketFrame) {
-            Message[] messages = Protocol.decodeMessage(((TextWebSocketFrame) webSocketFrame).getText());
+            String[] messages = Protocol.decodeMessage(((TextWebSocketFrame) webSocketFrame).getText());
             if (messages != null) {
-                for (Message message : messages) {
+                for (String message : messages) {
                     sockJsHandlerContext.getConnection().sendToListeners(message);
                 }
             }
@@ -87,7 +87,7 @@ public class WebSocket extends AbstractTransport {
 
     @Override
     public void sendMessage(Connection connection, String message) {
-        connection.getChannel().write(Protocol.encodeMessageToWebSocketFrame(message));
+        connection.getChannel().write(message);
     }
 
     @Override
@@ -116,8 +116,7 @@ public class WebSocket extends AbstractTransport {
             future.getChannel().write(Protocol.WEB_SOCKET_OPEN_FRAME);
             SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(future.getChannel());
             if (sockJsHandlerContext != null) {
-                Connection connection = getSockJs().createConnection(sockJsHandlerContext.getBaseUrl(),
-                                                                     sockJsHandlerContext.getSessionId());
+                Connection connection = getSockJs().createConnection(sockJsHandlerContext);
                 connection.setChannel(future.getChannel());
                 connection.startHeartbeat();
                 sockJsHandlerContext.setConnection(connection);

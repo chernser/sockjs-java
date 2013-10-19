@@ -5,16 +5,21 @@
 package sockjs.netty;
 
 import sockjs.Connection;
+import sockjs.transports.Protocol;
 
-public class SockJsSendEvent {
+public class SockJsSendEvent implements SockJsEvent {
 
     private final Connection connection;
 
     private final String payload;
 
     public SockJsSendEvent(Connection connection, String payload) {
+        this(connection, payload, false);
+    }
+
+    public SockJsSendEvent(Connection connection, String payload, boolean raw) {
         this.connection = connection;
-        this.payload = payload;
+        this.payload = raw ? payload : Protocol.encodeMessageToString(payload);
     }
 
     public Connection getConnection() {

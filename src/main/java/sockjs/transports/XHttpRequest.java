@@ -78,10 +78,7 @@ public class XHttpRequest extends AbstractTransport {
 
     @Override
     public void sendMessage(Connection connection, String message) {
-
-
-        ChannelBuffer content = ChannelBuffers
-                .copiedBuffer(Protocol.encodeMessageToString(message) + "\n", CharsetUtil.UTF_8);
+        ChannelBuffer content = ChannelBuffers.copiedBuffer(message + "\n", CharsetUtil.UTF_8);
         ChannelFuture writeFuture = connection.getChannel().write(new DefaultHttpChunk(content));
         connection.incSentBytes(content.readableBytes());
 
@@ -122,8 +119,8 @@ public class XHttpRequest extends AbstractTransport {
             log.info("Message received: " + message);
             Connection connection = sockJsHandlerContext.getConnection();
             if (connection != null) {
-                Message[] messages = Protocol.decodeMessage(message);
-                for (Message decodedMessage : messages) {
+                String[] messages = Protocol.decodeMessage(message);
+                for (String decodedMessage : messages) {
                     connection.sendToListeners(decodedMessage);
                 }
             } else {
@@ -202,8 +199,7 @@ public class XHttpRequest extends AbstractTransport {
             if (sockJsHandlerContext != null) {
                 Connection connection = sockJsHandlerContext.getConnection();
                 if (connection == null) {
-                    connection = XHttpRequest.this.getSockJs().createConnection(sockJsHandlerContext
-                            .getBaseUrl(), sockJsHandlerContext.getSessionId());
+                    connection = XHttpRequest.this.getSockJs().createConnection(sockJsHandlerContext);
                 }
 
                 connection.setChannel(future.getChannel());

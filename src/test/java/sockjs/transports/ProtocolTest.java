@@ -21,11 +21,20 @@ public class ProtocolTest {
 
     @Test
     public void decodeMessage() {
-        Message[] messages = Protocol.decodeMessage("[\"test\"]");
-        assertEquals("test", messages[0].getPayload());
+        String[] messages = Protocol.decodeMessage("[\"test\"]");
+        assertEquals("test", messages[0]);
 
         messages = Protocol.decodeMessage("[\"value\", \"123\"]");
-        assertEquals("value", messages[0].getPayload());
-        assertEquals("123", messages[1].getPayload());
+        assertEquals("value", messages[0]);
+        assertEquals("123", messages[1]);
     }
+
+    @Test
+    public void encodeJSONPCallback() {
+        String[] messages = new String[]{"123", "hello"};
+        String encodedMessage = Protocol.encodeToJSONString(messages);
+
+        System.out.println("encoded message: " + encodedMessage);
+    }
+
 }

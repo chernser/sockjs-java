@@ -52,8 +52,8 @@ public class EventSource extends AbstractTransport {
 
     @Override
     public void sendMessage(Connection connection, String message) {
-        ChannelBuffer content = ChannelBuffers.copiedBuffer("data: " + Protocol
-                .encodeMessageToString(message) + "\r\n\r\n", CharsetUtil.UTF_8);
+        ChannelBuffer content = ChannelBuffers
+                .copiedBuffer("data: " + message + "\r\n\r\n", CharsetUtil.UTF_8);
         ChannelFuture writeFuture = connection.getChannel().write(new DefaultHttpChunk(content));
         connection.incSentBytes(content.readableBytes());
 
@@ -131,8 +131,7 @@ public class EventSource extends AbstractTransport {
             if (sockJsHandlerContext != null) {
                 Connection connection = sockJsHandlerContext.getConnection();
                 if (connection == null) {
-                    connection = EventSource.this.getSockJs().createConnection(sockJsHandlerContext
-                            .getBaseUrl(), sockJsHandlerContext.getSessionId());
+                    connection = EventSource.this.getSockJs().createConnection(sockJsHandlerContext);
                 }
 
                 connection.setChannel(future.getChannel());

@@ -10,7 +10,7 @@ import sockjs.transports.Protocol;
 
 import java.net.SocketAddress;
 
-public class SockJsCloseEvent {
+public class SockJsCloseEvent implements SockJsEvent {
 
     private final Connection connection;
 

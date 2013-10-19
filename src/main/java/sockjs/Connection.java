@@ -40,14 +40,16 @@ public class Connection {
 
     private String jsonpCallback = null;
 
-    private ConcurrentLinkedQueue<Message> messages;
+    private ConcurrentLinkedQueue<String> messages;
+
+    private Protocol.CloseReason closeReason;
 
     public Connection(SockJs sockJs, String baseUrl) {
         this.sockJs = sockJs;
         this.baseUrl = baseUrl;
         this.id = UUID.randomUUID().toString();
         this.sentBytes = new AtomicInteger();
-        this.messages = new ConcurrentLinkedQueue<Message>();
+        this.messages = new ConcurrentLinkedQueue<String>();
     }
 
     public void setChannel(Channel channel) {
@@ -87,22 +89,18 @@ public class Connection {
         startHeartbeat(this);
     }
 
-    public void sendToChannel(Message message) {
+    public void sendToChannel(String message) {
+        if (getChannel() != null && getChannel().isWritable()) {
         getChannel().getPipeline()
                 .sendUpstream(new UpstreamMessageEvent(getChannel(), new SockJsSendEvent(this,
-                        message
-                        .getPayload()), getChannel().getRemoteAddress()));
+                        message), getChannel().getRemoteAddress()));
+        } else {
+            messages.add(message);
+        }
     }
 
-    public void sendToListeners(Message message) {
+    public void sendToListeners(String message) {
         sockJs.notifyListeners(this, message);
-    }
-
-    public void close() {
-        getChannel().getPipeline()
-                .sendUpstream(new UpstreamMessageEvent(getChannel(), new SockJsCloseEvent(this,
-                        Protocol.CloseReason.NORMAL), getChannel()
-                        .getRemoteAddress()));
     }
 
     public int getSentBytes() {
@@ -125,9 +123,34 @@ public class Connection {
         this.jsonpCallback = jsonpCallback;
     }
 
-    public Message pollMessage() {
+    public String pollMessage() {
         return messages.poll();
     }
+
+    public String[] pollAllMessages() {
+
+        int numOfMessages = messages.size();
+        String[] polledMessages = new String[numOfMessages];
+        for (int i = 0; i < numOfMessages; i++) {
+            polledMessages[i] = messages.poll();
+        }
+
+        return polledMessages;
+    }
+
+    public Protocol.CloseReason getCloseReason() {
+        return closeReason;
+    }
+
+    public void setCloseReason(Protocol.CloseReason closeReason) {
+        this.closeReason = closeReason;
+        getChannel().getPipeline()
+                .sendUpstream(new UpstreamMessageEvent(getChannel(), new SockJsCloseEvent(this,
+                        closeReason), getChannel()
+                        .getRemoteAddress()));
+
+    }
+
     private static void startHeartbeat(final Connection connection) {
 
         TimerTask timerTask = new TimerTask() {

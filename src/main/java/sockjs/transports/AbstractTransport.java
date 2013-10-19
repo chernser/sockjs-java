@@ -59,6 +59,7 @@ public abstract class AbstractTransport extends SimpleChannelHandler implements 
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e)
             throws Exception {
         log.error("Exception in transport: ", e.getCause());
+        ctx.getChannel().close();
     }
 
     protected SockJsHandlerContext getSockJsHandlerContext(Channel channel) {

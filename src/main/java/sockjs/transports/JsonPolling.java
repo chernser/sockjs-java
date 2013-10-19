@@ -6,31 +6,26 @@ package sockjs.transports;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.util.CharsetUtil;
+import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sockjs.Connection;
-import sockjs.Message;
 import sockjs.SockJs;
-import sockjs.netty.HttpHelpers;
-import sockjs.netty.SockJsHandlerContext;
+import sockjs.netty.*;
 
+import java.net.URLDecoder;
 import java.util.List;
 
 public class JsonPolling extends AbstractTransport {
 
     private static final Logger log = LoggerFactory.getLogger(JsonPolling.class);
 
-    private static final ChannelFutureListener SEND_LAST_CHUNK;
-
-    static {
-        SEND_LAST_CHUNK = new SendLastChunk();
-    }
+    private static final String JSONP_OPEN_FRAME = "\"o\"";
 
     public JsonPolling(SockJs sockJs) {
         super(sockJs);
@@ -39,7 +34,7 @@ public class JsonPolling extends AbstractTransport {
     @Override
     public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         if (httpRequest.getMethod() == HttpMethod.GET) {
-            handleJsonPolling(ctx, httpRequest);
+            pollMessage(ctx, httpRequest);
         } else if (httpRequest.getMethod() == HttpMethod.POST) {
             handleJsonPollingSend(ctx, httpRequest);
         }
@@ -52,15 +47,19 @@ public class JsonPolling extends AbstractTransport {
 
     @Override
     public void sendMessage(Connection connection, String message) {
-        ChannelBuffer content = ChannelBuffers.copiedBuffer(connection.getJsonpCallback() + "(\"" +
-                Protocol.encodeMessageToString(message) + "\");\r\n", CharsetUtil.UTF_8);
+        log.info("sendMessage: " + message);
+        String encodedMessage = connection.getJsonpCallback() + "(" + message + ");\r\n";
+        ChannelBuffer content = ChannelBuffers.copiedBuffer(encodedMessage, CharsetUtil.UTF_8);
+        HttpResponse response = createResponse(content);
 
-        ChannelFuture writeFuture = connection.getChannel().write(new DefaultHttpChunk(content));
-        connection.incSentBytes(content.readableBytes());
+        if (connection.getChannel().isWritable()) {
+            connection.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+            connection.incSentBytes(content.readableBytes());
 
-        if (connection.getSentBytes() > getSockJs().getMaxStreamSize()) {
-            connection.resetSentBytes();
-            writeFuture.addListener(SEND_LAST_CHUNK);
+            if (connection.getSentBytes() > getSockJs().getMaxStreamSize()) {
+                connection.resetSentBytes();
+                connection.setCloseReason(Protocol.CloseReason.NORMAL);
+            }
         }
     }
 
@@ -68,46 +67,52 @@ public class JsonPolling extends AbstractTransport {
     public void handleCloseRequest(Connection connection, Protocol.CloseReason reason) {
         ChannelBuffer content = ChannelBuffers.copiedBuffer(Protocol
                 .encodeJsonpClose(reason, connection.getJsonpCallback()), CharsetUtil.UTF_8);
-        connection.getChannel().write(new DefaultHttpChunk(content)).addListener(SEND_LAST_CHUNK);
+        connection.getChannel().write(new DefaultHttpChunk(content)).addListener(ChannelFutureListener.CLOSE);
     }
 
     private void handleJsonPollingSend(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx.getChannel());
         if (sockJsHandlerContext != null) {
             String message = httpRequest.getContent().toString(CharsetUtil.UTF_8);
+            if (message.startsWith("d=")) {
+                try {
+                    message = message.length() >= 5 ? URLDecoder.decode(message.substring(2), "UTF-8"): "";
+                } catch (Exception e) {
+                    HttpHelpers.sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "Payload expected.");
+                    return;
+                }
+            } else if (!message.isEmpty() && !(message.charAt(0) == '[' || message.charAt(0) == '\"')) {
+                message = "";
+            }
+
+            if (message.trim().isEmpty()) {
+                HttpHelpers.sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "Payload expected.");
+                return;
+            }
+
             log.info("Message received: " + message);
             Connection connection = sockJsHandlerContext.getConnection();
             if (connection != null) {
-                Message[] messages = Protocol.decodeMessage(message);
-                for (Message decodedMessage : messages) {
-                    connection.sendToListeners(decodedMessage);
+                String[] messages = Protocol.decodeMessage(message);
+                if (messages == null) {
+                    HttpHelpers.sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "Broken JSON encoding.");
+                } else {
+
+                    HttpResponse response = createResponse(ChannelBuffers.copiedBuffer("ok", CharsetUtil.UTF_8));
+                    response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain;charset=UTF-8");
+                    ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+                    for (String decodedMessage : messages) {
+                        connection.sendToListeners(decodedMessage);
+                    }
                 }
+
             } else {
                 HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);
-                return;
             }
         }
-
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.NO_CONTENT);
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
-        String origin = httpRequest.getHeader(HttpHeaders.Names.ORIGIN);
-        if (origin != null) {
-            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
-        } else {
-            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-        }
-
-        response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate," +
-                "" + " max-age=0");
-        response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
-        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain;charset=UTF-8");
-        response.setContent(ChannelBuffers.copiedBuffer("ok", CharsetUtil.UTF_8));
-
-        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
-    private void handleJsonPolling(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+    private void pollMessage(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         List<String> callbacks = new QueryStringDecoder(httpRequest.getUri()).getParameters().get("c");
         if (callbacks == null || callbacks.isEmpty()) {
             HttpHelpers.sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
@@ -117,78 +122,49 @@ public class JsonPolling extends AbstractTransport {
 
         SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx);
         if (sockJsHandlerContext != null) {
-            HttpResponse response = createResponse(ctx, httpRequest);
-            sockJsHandlerContext.setJsonpCallback(callbacks.get(0));
-            ctx.getChannel().write(response).addListener(new SendOpen());
+            Connection connection = sockJsHandlerContext.getConnection();
+            SockJsEvent sendEvent;
+            if (connection == null) {
+                connection = getSockJs().createConnection(sockJsHandlerContext);
+                sockJsHandlerContext.setConnection(connection);
+                connection.setJsonpCallback(callbacks.get(0));
+                connection.setChannel(ctx.getChannel());
+                sendEvent = new SockJsSendEvent(connection, JSONP_OPEN_FRAME, true);
+            } else if (connection.getCloseReason() != null) {
+                log.info("Connection is closed: " + connection.getCloseReason());
+                connection.setChannel(ctx.getChannel());
+                sendEvent = new SockJsCloseEvent(connection, connection.getCloseReason());
+            } else {
+                log.info("polling all messages we have to send");
+                connection.setChannel(ctx.getChannel());
+                String encodedMessage = Protocol.encodeToJSONString(connection.pollAllMessages());
+                sendEvent = new SockJsSendEvent(connection, encodedMessage , true);
+            }
+
+            ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(),
+                    sendEvent, ctx.getChannel().getRemoteAddress()));
         } else {
             HttpHelpers
-                    .sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "Internal Server Error");
+                    .sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                            "Internal Server Error");
         }
 
     }
 
-    private static HttpResponse createResponse(ChannelHandlerContext ctx,
-                                               HttpRequest httpRequest) {
+    private static HttpResponse createResponse(ChannelBuffer content) {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.OK);
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
-
-        String origin = httpRequest.getHeader(HttpHeaders.Names.ORIGIN);
-        if (origin != null) {
-            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
-        } else {
-            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-        }
-
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
         response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate," +
                 "" + " max-age=0");
-        response.setHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
         response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/javascript;charset=UTF-8");
+        response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, content.readableBytes());
 
+        response.setContent(content);
         return response;
     }
 
-    private class SendOpen implements ChannelFutureListener {
-        @Override
-        public void operationComplete(ChannelFuture future)
-                throws Exception {
-            log.info("Sending open");
-            SockJsHandlerContext sockJsHandlerContext = JsonPolling.this
-                    .getSockJsHandlerContext(future.getChannel());
-            if (sockJsHandlerContext != null) {
-                Connection connection = sockJsHandlerContext.getConnection();
-                if (connection == null) {
-                    connection = JsonPolling.this.getSockJs().createConnection(sockJsHandlerContext
-                            .getBaseUrl(), sockJsHandlerContext.getSessionId());
-                }
 
-                connection.setChannel(future.getChannel());
-                connection.setJsonpCallback(sockJsHandlerContext.getJsonpCallback());
-
-
-                HttpChunk chunk = new DefaultHttpChunk(ChannelBuffers
-                        .copiedBuffer(connection.getJsonpCallback() + "(\"o\");\r\n", CharsetUtil.UTF_8));
-
-                final Connection newConnection = connection;
-                future.getChannel().write(chunk).addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(ChannelFuture future)
-                            throws Exception {
-                        JsonPolling.this.getSockJs()
-                                .notifyListenersAboutNewConnection(newConnection);
-                    }
-                });
-
-            }
-        }
-    }
-
-    private static class SendLastChunk implements ChannelFutureListener {
-        @Override
-        public void operationComplete(ChannelFuture future)
-                throws Exception {
-            future.getChannel().write(HttpChunk.LAST_CHUNK).addListener(CLOSE);
-        }
-    }
 }
