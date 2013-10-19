@@ -61,6 +61,10 @@ public class JsonPolling extends AbstractTransport {
                 connection.setCloseReason(Protocol.CloseReason.NORMAL);
             }
         }
+
+        if (JSONP_OPEN_FRAME == message) {
+            getSockJs().notifyListenersAboutNewConnection(connection);
+        }
     }
 
     @Override
