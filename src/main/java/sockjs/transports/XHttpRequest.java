@@ -180,7 +180,9 @@ public class XHttpRequest extends AbstractTransport {
 
         response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate," +
                 "" + " max-age=0");
-        response.setHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
+        if (httpRequest.getProtocolVersion() == HttpVersion.HTTP_1_1) {
+            response.setHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
+        }
         response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/javascript;charset=UTF-8");
 

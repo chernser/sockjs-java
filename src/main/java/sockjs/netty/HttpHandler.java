@@ -77,7 +77,16 @@ public class HttpHandler extends SimpleChannelHandler {
             return;
         }
 
-        AbstractTransport transport = (AbstractTransport)sockJs.getTransport(getTransport(req.getUri()));
+
+        String transportName = getTransport(req.getUri());
+        String suffix = req.getUri().substring(baseUrl.length(), req.getUri().lastIndexOf("/"));
+        if (!transportName.equals("websocket") && (suffix.contains(".") || !suffix.matches("/.+/.+"))) {
+            log.info("bad suffix: " + suffix);
+            HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);
+            return;
+        }
+
+        AbstractTransport transport = (AbstractTransport)sockJs.getTransport(transportName);
         if (transport == null) {
             HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);
             return;
@@ -91,6 +100,7 @@ public class HttpHandler extends SimpleChannelHandler {
         }
 
         String sessionId = getSessionId(req.getUri());
+
         SockJsHandlerContext sockJsHandlerContext = new SockJsHandlerContext();
         sockJsHandlerContext.setBaseUrl(baseUrl);
         sockJsHandlerContext.setSessionId(sessionId);
@@ -118,16 +128,15 @@ public class HttpHandler extends SimpleChannelHandler {
     private void sendGreeting(ChannelHandlerContext ctx, HttpRequest req) {
         HttpResponse response = new DefaultHttpResponse(req.getProtocolVersion(), HttpResponseStatus.OK);
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain;charset=UTF-8");
-
-
-        if (HttpVersion.HTTP_1_1.equals(req.getProtocolVersion())) {
-            response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
-        }
-
         response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, GREETING.length());
         response.setContent(ChannelBuffers.copiedBuffer(GREETING, CharsetUtil.UTF_8));
 
-        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+        if (HttpVersion.HTTP_1_1.equals(req.getProtocolVersion())) {
+            response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
+            ctx.getChannel().write(response);
+        } else {
+            ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+        }
     }
 
     private void sendInfo(ChannelHandlerContext ctx, String baseUrl) {

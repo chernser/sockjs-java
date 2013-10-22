@@ -122,15 +122,18 @@ public class Protocol {
 
     public static String[] decodeMessage(String message)
             throws JsonParseException {
-        String[] messages = null;
+        if (message.isEmpty()) {
+            return null;
+        }
         try {
             if (message.startsWith("[")) {
                 return jsonObjectMapper.readValue(message, String[].class);
             } else if (message.startsWith("\"")) {
                 String payload = jsonObjectMapper.readValue(message, String.class);
                 return new String[] {payload};
+            } else {
+                return  new String[] {message};
             }
-            return messages;
         } catch (JsonParseException ex) {
             log.info("Json parse error: ", ex);
             throw ex;

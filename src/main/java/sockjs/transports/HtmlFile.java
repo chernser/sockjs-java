@@ -44,7 +44,6 @@ public class HtmlFile extends AbstractTransport {
             Arrays.fill(spaces, ' ');
 
             htmlTemplate = head + String.valueOf(spaces) + "\r\n\r\n";
-            log.info(">> " + htmlTemplate.length() + " > " + htmlTemplate);
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
@@ -97,6 +96,7 @@ public class HtmlFile extends AbstractTransport {
 
             final String prelude = String.format(htmlTemplate, callbacks.get(0));
             HttpResponse response = createResponse();
+            HttpHelpers.addJESSIONID(response, sockJsHandlerContext.getJSESSIONID());
             ctx.getChannel().write(response).addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future)

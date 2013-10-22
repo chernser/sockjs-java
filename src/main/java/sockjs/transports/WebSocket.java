@@ -49,6 +49,16 @@ public class WebSocket extends AbstractTransport {
 
     @Override
     public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+        if (httpRequest.getMethod() != HttpMethod.GET) {
+            HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.METHOD_NOT_ALLOWED);
+            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, true);
+            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+            response.setHeader(HttpHeaders.Names.ALLOW, "GET");
+            response.setHeader(HttpHeaders.Names.CONNECTION, "close");
+            ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+            return;
+        }
+
         if (isWebSocketUpgrade(httpRequest)) {
             if (!isValidConnectionHeader(httpRequest)) {
                 HttpHelpers.sendError(ctx, HttpResponseStatus.BAD_REQUEST, ERR_INCORRECT_UPGRADE);
@@ -62,6 +72,7 @@ public class WebSocket extends AbstractTransport {
                 } else {
                     if (WebSocketVersion.V08.equals(handshaker.getVersion())) {
                         handshaker.handshake(ctx.getChannel(), httpRequest).addListener(INIT_CONNECTION);
+                        ctx.getPipeline().replace(this, "handler", new RawWebSocket(getSockJs()));
                     } else {
                         handshaker.handshake(ctx.getChannel(), httpRequest).addListener(SEND_OPEN_FRAME);
                     }
@@ -133,7 +144,7 @@ public class WebSocket extends AbstractTransport {
 
     private boolean isValidConnectionHeader(HttpRequest httpRequest) {
         String connectionHeader = httpRequest.getHeader(HttpHeaders.Names.CONNECTION);
-        return connectionHeader != null && "Upgrade".compareToIgnoreCase(connectionHeader) == 0;
+        return connectionHeader != null && connectionHeader.contains("Upgrade");
     }
 
     private static String getWebSocketLocation(HttpRequest req, String path) {
