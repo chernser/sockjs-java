@@ -73,6 +73,7 @@ public class EventSource extends AbstractTransport {
         SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx);
         if (sockJsHandlerContext != null) {
             HttpResponse response = createStreamingResponse(ctx, httpRequest);
+            HttpHelpers.addJESSIONID(response, sockJsHandlerContext.getJSESSIONID());
             ctx.getChannel().write(response).addListener(new SendPrelude(new SendOpen()));
         } else {
             HttpHelpers
@@ -132,6 +133,7 @@ public class EventSource extends AbstractTransport {
                 Connection connection = sockJsHandlerContext.getConnection();
                 if (connection == null) {
                     connection = EventSource.this.getSockJs().createConnection(sockJsHandlerContext);
+                    connection.setJSESSIONID(sockJsHandlerContext.getJSESSIONID());
                 }
 
                 connection.setChannel(future.getChannel());

@@ -82,11 +82,18 @@ public class HttpHandler extends SimpleChannelHandler {
             return;
         }
 
+        String jsesssionId = null;
+        if (sockJs.getEndpointInfo(baseUrl).isCookiesNeeded()) {
+            jsesssionId = HttpHelpers.getJSESSIONID(req);
+            jsesssionId = jsesssionId != null ? jsesssionId : "dummy";
+        }
+
         String sessionId = getSessionId(req.getUri());
         SockJsHandlerContext sockJsHandlerContext = new SockJsHandlerContext();
         sockJsHandlerContext.setBaseUrl(baseUrl);
         sockJsHandlerContext.setSessionId(sessionId);
         sockJsHandlerContext.setConnection(sockJs.getConnectionForSession(sessionId));
+        sockJsHandlerContext.setJSESSIONID(jsesssionId);
         ctx.getPipeline().replace(this, "handler", transport);
         ctx.getPipeline().getChannel().setAttachment(sockJsHandlerContext);
         ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(), req, ctx.getChannel().getRemoteAddress()));

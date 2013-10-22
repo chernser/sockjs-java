@@ -8,6 +8,7 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.util.CharsetUtil;
@@ -16,6 +17,8 @@ import org.slf4j.LoggerFactory;
 import sockjs.Connection;
 import sockjs.SockJs;
 import sockjs.netty.*;
+
+import java.util.Collection;
 
 public class XHttpRequestPolling extends AbstractTransport{
 
@@ -50,20 +53,32 @@ public class XHttpRequestPolling extends AbstractTransport{
                 connection = getSockJs().createConnection(sockJsHandlerContext);
                 sockJsHandlerContext.setConnection(connection);
                 connection.setChannel(ctx.getChannel());
+                connection.setJSESSIONID(sockJsHandlerContext.getJSESSIONID());
                 sendEvent = new SockJsSendEvent(connection, OPEN_FRAME, true);
             } else if (connection.getCloseReason() != null) {
                 log.info("Connection is closed: " + connection.getCloseReason());
                 connection.setChannel(ctx.getChannel());
                 sendEvent = new SockJsCloseEvent(connection, connection.getCloseReason());
+            } else if (connection.getChannel() != null && connection.getChannel().isWritable()) {
+                ChannelBuffer content = ChannelBuffers.copiedBuffer(Protocol.CloseReason.ALREADY_OPENED.frame + "\n", CharsetUtil.UTF_8);
+                ctx.getChannel().write(createResponse(content)).addListener(ChannelFutureListener.CLOSE);
+                return;
             } else {
                 log.info("polling all messages we have to send");
                 connection.setChannel(ctx.getChannel());
-                String encodedMessage = Protocol.encodeMessageToString(connection.pollAllMessages());
-                sendEvent = new SockJsSendEvent(connection, encodedMessage, true);
+                String[] messagesToSend = connection.pollAllMessages();
+                if (messagesToSend.length > 0) {
+                    String encodedMessage = Protocol.encodeMessageToString(messagesToSend);
+                    sendEvent = new SockJsSendEvent(connection, encodedMessage, true);
+                } else {
+                    sendEvent = null;
+                }
             }
 
-            ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(),
-                    sendEvent, ctx.getChannel().getRemoteAddress()));
+            if (sendEvent != null) {
+                ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(),
+                        sendEvent, ctx.getChannel().getRemoteAddress()));
+            }
         } else {
             HttpHelpers
                     .sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
@@ -79,7 +94,9 @@ public class XHttpRequestPolling extends AbstractTransport{
     @Override
     public void sendMessage(Connection connection, String encodedMessage) {
         ChannelBuffer content = ChannelBuffers.copiedBuffer(encodedMessage + '\n', CharsetUtil.UTF_8);
-        connection.getChannel().write(createResponse(content)).addListener(ChannelFutureListener.CLOSE);
+        HttpResponse response = createResponse(content);
+        HttpHelpers.addJESSIONID(response, connection.getJSESSIONID());
+        connection.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
     @Override

@@ -99,6 +99,7 @@ public class XHttpRequest extends AbstractTransport {
         SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx);
         if (sockJsHandlerContext != null) {
             HttpResponse response = createStreamingResponse(ctx, httpRequest);
+            HttpHelpers.addJESSIONID(response, sockJsHandlerContext.getJSESSIONID());
             ChannelFutureListener nextListener;
             if (sockJsHandlerContext.getConnection() == null ||
                 !sockJsHandlerContext.getConnection().getChannel().isWritable()) {
@@ -115,6 +116,7 @@ public class XHttpRequest extends AbstractTransport {
 
     private void handleSend(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx.getChannel());
+        String jsessionId = "dummy";
         if (sockJsHandlerContext != null) {
             String message = httpRequest.getContent().toString(CharsetUtil.UTF_8);
             log.info("Message received: " + message);
@@ -145,6 +147,7 @@ public class XHttpRequest extends AbstractTransport {
 
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.NO_CONTENT);
+        HttpHelpers.addJESSIONID(response, jsessionId);
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
         String origin = httpRequest.getHeader(HttpHeaders.Names.ORIGIN);
         if (origin != null) {
@@ -215,7 +218,7 @@ public class XHttpRequest extends AbstractTransport {
                 if (connection == null) {
                     connection = XHttpRequest.this.getSockJs().createConnection(sockJsHandlerContext);
                 }
-
+                connection.setJSESSIONID(sockJsHandlerContext.getJSESSIONID());
                 connection.setChannel(future.getChannel());
 
                 final Connection newConnection = connection;

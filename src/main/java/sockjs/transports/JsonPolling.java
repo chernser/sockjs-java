@@ -52,7 +52,7 @@ public class JsonPolling extends AbstractTransport {
         String encodedMessage = connection.getJsonpCallback() + "(" + message + ");\r\n";
         ChannelBuffer content = ChannelBuffers.copiedBuffer(encodedMessage, CharsetUtil.UTF_8);
         HttpResponse response = createResponse(content);
-
+        HttpHelpers.addJESSIONID(response, connection.getJSESSIONID());
         if (connection.getChannel().isWritable()) {
             connection.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
             connection.incSentBytes(content.readableBytes());
@@ -63,7 +63,7 @@ public class JsonPolling extends AbstractTransport {
             }
         }
 
-        if (JSONP_OPEN_FRAME == message) {
+        if (JSONP_OPEN_FRAME.equals(message)) {
             getSockJs().notifyListenersAboutNewConnection(connection);
         }
     }
@@ -105,6 +105,7 @@ public class JsonPolling extends AbstractTransport {
                     String[] messages = Protocol.decodeMessage(message);
                     if (messages != null) {
                         HttpResponse response = createResponse(ChannelBuffers.copiedBuffer("ok", CharsetUtil.UTF_8));
+                        HttpHelpers.addJESSIONID(response, connection.getJSESSIONID());
                         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain;charset=UTF-8");
                         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
                         for (String decodedMessage : messages) {
@@ -141,6 +142,7 @@ public class JsonPolling extends AbstractTransport {
                 sockJsHandlerContext.setConnection(connection);
                 connection.setJsonpCallback(callbacks.get(0));
                 connection.setChannel(ctx.getChannel());
+                connection.setJSESSIONID(sockJsHandlerContext.getJSESSIONID());
                 sendEvent = new SockJsSendEvent(connection, JSONP_OPEN_FRAME, true);
             } else if (connection.getCloseReason() != null) {
                 log.info("Connection is closed: " + connection.getCloseReason());
@@ -149,12 +151,19 @@ public class JsonPolling extends AbstractTransport {
             } else {
                 log.info("polling all messages we have to send");
                 connection.setChannel(ctx.getChannel());
-                String encodedMessage = Protocol.encodeToJSONString(connection.pollAllMessages());
-                sendEvent = new SockJsSendEvent(connection, encodedMessage , true);
+                String[] messagesToSend = connection.pollAllMessages();
+                if (messagesToSend.length > 0) {
+                    String encodedMessage = Protocol.encodeToJSONString(connection.pollAllMessages());
+                    sendEvent = new SockJsSendEvent(connection, encodedMessage , true);
+                } else {
+                    sendEvent = null;
+                }
             }
 
-            ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(),
-                    sendEvent, ctx.getChannel().getRemoteAddress()));
+            if (sendEvent != null) {
+                ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(),
+                        sendEvent, ctx.getChannel().getRemoteAddress()));
+            }
         } else {
             HttpHelpers
                     .sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,

@@ -14,6 +14,8 @@ public class SockJsHandlerContext {
 
     private String sessionId;
 
+    private String JSESSIONID;
+
     public String getBaseUrl() {
         return baseUrl;
     }
@@ -36,5 +38,13 @@ public class SockJsHandlerContext {
 
     public void setSessionId(String sessionId) {
         this.sessionId = sessionId;
+    }
+
+    public String getJSESSIONID() {
+        return JSESSIONID;
+    }
+
+    public void setJSESSIONID(String JSESSIONID) {
+        this.JSESSIONID = JSESSIONID;
     }
 }

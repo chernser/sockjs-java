@@ -9,6 +9,7 @@ import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sockjs.Connection;
 import sockjs.SockJs;
 import sockjs.Transport;
 import sockjs.netty.HttpHelpers;

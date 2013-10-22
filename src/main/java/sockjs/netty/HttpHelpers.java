@@ -11,6 +11,8 @@ import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.util.CharsetUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import sun.security.provider.MD5;
 
 import java.io.File;
@@ -20,8 +22,11 @@ import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.Set;
 
 public class HttpHelpers {
+
+    private final static Logger log = LoggerFactory.getLogger(HttpHelpers.class);
 
     private final static HttpResponse IFRAME_HTML;
 
@@ -97,6 +102,39 @@ public class HttpHelpers {
         } else {
             ctx.getChannel().write(IFRAME_HTML).addListener(ChannelFutureListener.CLOSE);
         }
+    }
+
+    public static void addJESSIONID(HttpResponse resp, String sessionId) {
+        if (sessionId == null) {
+            return;
+        }
+        CookieEncoder cookieEncoder = new CookieEncoder(true);
+        Cookie jsessionid = new DefaultCookie("JSESSIONID", sessionId);
+        jsessionid.setPath("/");
+        jsessionid.setHttpOnly(false);
+        cookieEncoder.addCookie(jsessionid);
+
+        String encodedCookies = cookieEncoder.encode();
+        resp.addHeader(HttpHeaders.Names.SET_COOKIE, encodedCookies);
+    }
+
+    private static final CookieDecoder COOKIE_DECODER = new CookieDecoder();
+
+    public static String getJSESSIONID(HttpRequest req) {
+        String cookieHeader = req.getHeader(HttpHeaders.Names.COOKIE);
+        if (cookieHeader == null) {
+            return null;
+        }
+
+        Set<Cookie> cookies = COOKIE_DECODER.decode(cookieHeader);
+
+        for (Cookie cookie : cookies) {
+            if (cookie.getName().equals("JSESSIONID")) {
+                return cookie.getValue();
+            }
+        }
+
+        return null;
     }
 
     private static String initIFrameETag(byte[] iframeContent) throws NoSuchAlgorithmException {

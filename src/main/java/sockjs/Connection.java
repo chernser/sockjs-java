@@ -44,6 +44,8 @@ public class Connection {
 
     private Protocol.CloseReason closeReason;
 
+    private String JSESSIONID;
+
     public Connection(SockJs sockJs, String baseUrl) {
         this.sockJs = sockJs;
         this.baseUrl = baseUrl;
@@ -92,8 +94,9 @@ public class Connection {
     public void sendToChannel(String message) {
         if (getChannel() != null && getChannel().isWritable()) {
             getChannel().getPipeline()
-                    .sendUpstream(new UpstreamMessageEvent(getChannel(), new SockJsSendEvent(this,
-                            message), getChannel().getRemoteAddress()));
+                    .sendUpstream(new UpstreamMessageEvent(getChannel(), new SockJsSendEvent
+                            (this, message), getChannel()
+                            .getRemoteAddress()));
         } else {
             messages.add(message);
         }
@@ -149,6 +152,14 @@ public class Connection {
                         closeReason), getChannel()
                         .getRemoteAddress()));
 
+    }
+
+    public String getJSESSIONID() {
+        return JSESSIONID;
+    }
+
+    public void setJSESSIONID(String JSESSIONID) {
+        this.JSESSIONID = JSESSIONID;
     }
 
     private static void startHeartbeat(final Connection connection) {
