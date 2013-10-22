@@ -26,6 +26,8 @@ public class SockJs {
 
     public static final String JSON_POLLING_SEND = "jsonp_send";
 
+    public static final String HTML_FILE = "htmlfile";
+
     private static final EndpointInfo DEFAULT_INFO = new EndpointInfo();
 
     private ConcurrentHashMap<String, Set<ConnectionListener>> listeners;
@@ -54,6 +56,7 @@ public class SockJs {
         JsonPolling jsonp = new JsonPolling(this);
         addTransport(JSON_POLLING, jsonp);
         addTransport(JSON_POLLING_SEND, jsonp);
+        addTransport(HTML_FILE, new HtmlFile(this));
     }
 
     public void addListener(String baseUrl, ConnectionListener listener) {
