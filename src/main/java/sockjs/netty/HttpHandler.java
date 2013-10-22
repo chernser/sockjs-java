@@ -88,7 +88,7 @@ public class HttpHandler extends SimpleChannelHandler {
         sockJsHandlerContext.setSessionId(sessionId);
         sockJsHandlerContext.setConnection(sockJs.getConnectionForSession(sessionId));
         ctx.getPipeline().replace(this, "handler", transport);
-        ctx.getPipeline().getContext("handler").setAttachment(sockJsHandlerContext);
+        ctx.getPipeline().getChannel().setAttachment(sockJsHandlerContext);
         ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(), req, ctx.getChannel().getRemoteAddress()));
     }
 

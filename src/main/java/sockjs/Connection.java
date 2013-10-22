@@ -91,9 +91,9 @@ public class Connection {
 
     public void sendToChannel(String message) {
         if (getChannel() != null && getChannel().isWritable()) {
-        getChannel().getPipeline()
-                .sendUpstream(new UpstreamMessageEvent(getChannel(), new SockJsSendEvent(this,
-                        message), getChannel().getRemoteAddress()));
+            getChannel().getPipeline()
+                    .sendUpstream(new UpstreamMessageEvent(getChannel(), new SockJsSendEvent(this,
+                            message), getChannel().getRemoteAddress()));
         } else {
             messages.add(message);
         }

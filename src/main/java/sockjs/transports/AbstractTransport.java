@@ -42,6 +42,8 @@ public abstract class AbstractTransport extends SimpleChannelHandler implements 
         } else if (msg instanceof SockJsSendEvent) {
             SockJsSendEvent se = (SockJsSendEvent)msg;
             sendMessage(se.getConnection(), se.getPayload());
+        } else if (msg instanceof WebSocketFrame) {
+            handle(ctx, (WebSocketFrame)msg);
         }
     }
 
@@ -63,14 +65,10 @@ public abstract class AbstractTransport extends SimpleChannelHandler implements 
     }
 
     protected SockJsHandlerContext getSockJsHandlerContext(Channel channel) {
-        return getSockJsHandlerContext(channel.getPipeline().getContext("handler"));
+        return (SockJsHandlerContext) channel.getAttachment();
     }
 
     protected SockJsHandlerContext getSockJsHandlerContext(ChannelHandlerContext ctx) {
-        Object attachment = ctx.getAttachment();
-        if (attachment != null && attachment instanceof SockJsHandlerContext) {
-            return (SockJsHandlerContext)attachment;
-        }
-        return null;
+        return getSockJsHandlerContext(ctx.getChannel());
     }
 }

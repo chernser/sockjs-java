@@ -69,9 +69,12 @@ public class JsonPolling extends AbstractTransport {
 
     @Override
     public void handleCloseRequest(Connection connection, Protocol.CloseReason reason) {
-        ChannelBuffer content = ChannelBuffers.copiedBuffer(Protocol
-                .encodeJsonpClose(reason, connection.getJsonpCallback()), CharsetUtil.UTF_8);
-        connection.getChannel().write(new DefaultHttpChunk(content)).addListener(ChannelFutureListener.CLOSE);
+        if (connection.getChannel().isWritable()) {
+            ChannelBuffer content = ChannelBuffers.copiedBuffer(Protocol
+                    .encodeJsonpClose(reason, connection.getJsonpCallback()), CharsetUtil.UTF_8);
+
+            connection.getChannel().write(new DefaultHttpChunk(content)).addListener(ChannelFutureListener.CLOSE);
+        }
     }
 
     private void handleJsonPollingSend(ChannelHandlerContext ctx, HttpRequest httpRequest) {

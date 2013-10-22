@@ -4,21 +4,13 @@
  */
 package sockjs.transports;
 
-import com.sun.xml.internal.ws.util.StringUtils;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.*;
 import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.handler.codec.http.*;
-import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
-import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
-import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
-import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
-import org.jboss.netty.util.internal.StringUtil;
+import org.jboss.netty.handler.codec.http.websocketx.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sockjs.Connection;
-import sockjs.Message;
 import sockjs.SockJs;
 import sockjs.netty.HttpHelpers;
 import sockjs.netty.SockJsHandlerContext;
@@ -31,10 +23,27 @@ public class WebSocket extends AbstractTransport {
 
     public static final String ERR_INVALID_REQUEST = "Can \"Upgrade\" only to \"WebSocket\".";
 
-    private final ChannelFutureListener ON_HANDSHAKE_FINISHED = new HandshakeFinishedListener();
+    private final ChannelFutureListener INIT_CONNECTION = new InitConnection();
+
+    private final ChannelFutureListener SEND_OPEN_FRAME = new SendOpenFrame();
 
     public WebSocket(SockJs sockJs) {
         super(sockJs);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e)
+            throws Exception {
+        log.info("exception: ", e.getCause());
+        try {
+            if (ctx.getChannel().isWritable()) {
+                ctx.getChannel().write(new CloseWebSocketFrame()).addListener(ChannelFutureListener.CLOSE);
+            } else {
+                ctx.getChannel().close();
+            }
+        } catch (Exception ex) {
+            log.error(">> ", ex);
+        }
     }
 
     @Override
@@ -50,7 +59,11 @@ public class WebSocket extends AbstractTransport {
                 if (handshaker == null) {
                     wsFactory.sendUnsupportedWebSocketVersionResponse(ctx.getChannel());
                 } else {
-                    handshaker.handshake(ctx.getChannel(), httpRequest).addListener(ON_HANDSHAKE_FINISHED);
+                    if (WebSocketVersion.V08.equals(handshaker.getVersion())) {
+                        handshaker.handshake(ctx.getChannel(), httpRequest).addListener(INIT_CONNECTION);
+                    } else {
+                        handshaker.handshake(ctx.getChannel(), httpRequest).addListener(SEND_OPEN_FRAME);
+                    }
                 }
             }
         } else {
@@ -71,12 +84,21 @@ public class WebSocket extends AbstractTransport {
         }
 
         if (webSocketFrame instanceof TextWebSocketFrame) {
+            log.info("text frame received: " + webSocketFrame);
             String[] messages = Protocol.decodeMessage(((TextWebSocketFrame) webSocketFrame).getText());
             if (messages != null) {
                 for (String message : messages) {
                     sockJsHandlerContext.getConnection().sendToListeners(message);
                 }
+            } else {
+                handleCloseRequest(sockJsHandlerContext.getConnection(), Protocol.CloseReason.NORMAL);
             }
+        } else if (webSocketFrame instanceof PingWebSocketFrame) {
+            ctx.getChannel().write(new PongWebSocketFrame(webSocketFrame.getBinaryData()));
+        } else if (webSocketFrame instanceof CloseWebSocketFrame) {
+            sockJsHandlerContext.getConnection().setCloseReason(Protocol.CloseReason.NORMAL);
+        } else {
+            log.error("Unknown frame received: " + webSocketFrame);
         }
     }
 
@@ -87,12 +109,13 @@ public class WebSocket extends AbstractTransport {
 
     @Override
     public void sendMessage(Connection connection, String message) {
-        connection.getChannel().write(message);
+        log.info("handling send message: " + message);
+        connection.getChannel().write( new TextWebSocketFrame(message));
     }
 
     @Override
     public void handleCloseRequest(Connection connection, Protocol.CloseReason reason) {
-        connection.getChannel().write(reason.webSocketFrame).addListener(ChannelFutureListener.CLOSE);
+        connection.getChannel().write(new CloseWebSocketFrame()).addListener(ChannelFutureListener.CLOSE);
     }
 
     private boolean isWebSocketUpgrade(HttpRequest httpRequest) {
@@ -109,11 +132,10 @@ public class WebSocket extends AbstractTransport {
         return "ws://" + req.getHeader(HttpHeaders.Names.HOST) + path;
     }
 
-    private class HandshakeFinishedListener implements ChannelFutureListener {
+    private class InitConnection implements ChannelFutureListener {
         @Override
         public void operationComplete(ChannelFuture future)
                 throws Exception {
-            future.getChannel().write(Protocol.WEB_SOCKET_OPEN_FRAME);
             SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(future.getChannel());
             if (sockJsHandlerContext != null) {
                 Connection connection = getSockJs().createConnection(sockJsHandlerContext);
@@ -124,6 +146,16 @@ public class WebSocket extends AbstractTransport {
             } else {
                 log.error("no sockjs handler context for channel");
             }
+        }
+    }
+
+    private class SendOpenFrame extends InitConnection {
+
+        @Override
+        public void operationComplete(ChannelFuture future)
+                throws Exception {
+            super.operationComplete(future);
+            future.getChannel().write(Protocol.WEB_SOCKET_OPEN_FRAME);
         }
     }
 }

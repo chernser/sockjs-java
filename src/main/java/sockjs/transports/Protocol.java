@@ -12,11 +12,15 @@ import org.jboss.netty.handler.codec.http.DefaultHttpChunk;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.jboss.netty.util.CharsetUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import sockjs.Message;
 
 import java.util.Collection;
 
 public class Protocol {
+
+    private static final Logger log = LoggerFactory.getLogger(Protocol.class);
 
     public static final String OPEN_FRAME = "o";
 
@@ -86,7 +90,8 @@ public class Protocol {
         try {
             String encodedArray= jsonObjectMapper.writeValueAsString(payload);
 
-            String encodedPayload =  jsonObjectMapper.writeValueAsString(String.format("a%s", encodedArray));
+            String encodedPayload =  jsonObjectMapper.writeValueAsString(String
+                    .format("a%s", encodedArray));
             return encodedPayload;
         } catch (Exception ex) {
             throw new RuntimeException(ex);
@@ -126,6 +131,7 @@ public class Protocol {
             }
             return messages;
         } catch (JsonParseException ex) {
+            log.info("Json parse error: ", ex);
             return null;
         } catch (Exception ex) {
             throw new RuntimeException(ex);
