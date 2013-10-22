@@ -11,6 +11,7 @@ import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
 import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sockjs.EndpointInfo;
 import sockjs.SockJs;
 import sockjs.Transport;
 import sockjs.transports.AbstractTransport;
@@ -83,7 +84,8 @@ public class HttpHandler extends SimpleChannelHandler {
         }
 
         String jsesssionId = null;
-        if (sockJs.getEndpointInfo(baseUrl).isCookiesNeeded()) {
+        EndpointInfo info = sockJs.getEndpointInfo(baseUrl);
+        if (info != null && info.isCookiesNeeded()) {
             jsesssionId = HttpHelpers.getJSESSIONID(req);
             jsesssionId = jsesssionId != null ? jsesssionId : "dummy";
         }

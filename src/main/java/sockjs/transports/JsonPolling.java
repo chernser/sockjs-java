@@ -153,7 +153,7 @@ public class JsonPolling extends AbstractTransport {
                 connection.setChannel(ctx.getChannel());
                 String[] messagesToSend = connection.pollAllMessages();
                 if (messagesToSend.length > 0) {
-                    String encodedMessage = Protocol.encodeToJSONString(connection.pollAllMessages());
+                    String encodedMessage = Protocol.encodeToJSONString(messagesToSend);
                     sendEvent = new SockJsSendEvent(connection, encodedMessage , true);
                 } else {
                     sendEvent = null;
