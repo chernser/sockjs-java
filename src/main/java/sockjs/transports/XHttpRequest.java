@@ -4,11 +4,13 @@
  */
 package sockjs.transports;
 
+import org.codehaus.jackson.JsonParseException;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
@@ -16,8 +18,7 @@ import org.slf4j.LoggerFactory;
 import sockjs.Connection;
 import sockjs.Message;
 import sockjs.SockJs;
-import sockjs.netty.HttpHelpers;
-import sockjs.netty.SockJsHandlerContext;
+import sockjs.netty.*;
 
 public class XHttpRequest extends AbstractTransport {
 
@@ -119,9 +120,22 @@ public class XHttpRequest extends AbstractTransport {
             log.info("Message received: " + message);
             Connection connection = sockJsHandlerContext.getConnection();
             if (connection != null) {
-                String[] messages = Protocol.decodeMessage(message);
-                for (String decodedMessage : messages) {
-                    connection.sendToListeners(decodedMessage);
+                try {
+                    String[] messages = Protocol.decodeMessage(message);
+                    if (messages != null) {
+                        for (String decodedMessage : messages) {
+                            connection.sendToListeners(decodedMessage);
+                        }
+                    } else {
+                        HttpHelpers
+                                .sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                                        "Payload expected.");
+                    }
+
+                }catch (JsonParseException ex) {
+                    HttpHelpers
+                            .sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                                    "Broken JSON encoding.");
                 }
             } else {
                 HttpHelpers.sendError(ctx, HttpResponseStatus.NOT_FOUND);

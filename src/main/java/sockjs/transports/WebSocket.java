@@ -4,6 +4,7 @@
  */
 package sockjs.transports;
 
+import org.codehaus.jackson.JsonParseException;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.handler.codec.http.*;
@@ -37,7 +38,7 @@ public class WebSocket extends AbstractTransport {
         log.info("exception: ", e.getCause());
         try {
             if (ctx.getChannel().isWritable()) {
-                ctx.getChannel().write(new CloseWebSocketFrame()).addListener(ChannelFutureListener.CLOSE);
+//                ctx.getChannel().write(new CloseWebSocketFrame()).addListener(ChannelFutureListener.CLOSE);
             } else {
                 ctx.getChannel().close();
             }
@@ -85,13 +86,20 @@ public class WebSocket extends AbstractTransport {
 
         if (webSocketFrame instanceof TextWebSocketFrame) {
             log.info("text frame received: " + webSocketFrame);
-            String[] messages = Protocol.decodeMessage(((TextWebSocketFrame) webSocketFrame).getText());
-            if (messages != null) {
-                for (String message : messages) {
-                    sockJsHandlerContext.getConnection().sendToListeners(message);
+            try {
+                String[] messages = Protocol
+                        .decodeMessage(((TextWebSocketFrame) webSocketFrame).getText());
+                if (messages != null) {
+                    for (String message : messages) {
+                        sockJsHandlerContext.getConnection().sendToListeners(message);
+                    }
+                } else {
+                    handleCloseRequest(sockJsHandlerContext
+                            .getConnection(), Protocol.CloseReason.NORMAL);
                 }
-            } else {
-                handleCloseRequest(sockJsHandlerContext.getConnection(), Protocol.CloseReason.NORMAL);
+            } catch (JsonParseException ex) {
+                handleCloseRequest(sockJsHandlerContext
+                        .getConnection(), Protocol.CloseReason.NORMAL);
             }
         } else if (webSocketFrame instanceof PingWebSocketFrame) {
             ctx.getChannel().write(new PongWebSocketFrame(webSocketFrame.getBinaryData()));
@@ -155,7 +163,9 @@ public class WebSocket extends AbstractTransport {
         public void operationComplete(ChannelFuture future)
                 throws Exception {
             super.operationComplete(future);
-            future.getChannel().write(Protocol.WEB_SOCKET_OPEN_FRAME);
+            if (future.getChannel().isWritable()) {
+                future.getChannel().write(Protocol.WEB_SOCKET_OPEN_FRAME);
+            }
         }
     }
 }

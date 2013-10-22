@@ -120,7 +120,8 @@ public class Protocol {
         return new TextWebSocketFrame(encodeMessageToString(message));
     }
 
-    public static String[] decodeMessage(String message) {
+    public static String[] decodeMessage(String message)
+            throws JsonParseException {
         String[] messages = null;
         try {
             if (message.startsWith("[")) {
@@ -132,7 +133,7 @@ public class Protocol {
             return messages;
         } catch (JsonParseException ex) {
             log.info("Json parse error: ", ex);
-            return null;
+            throw ex;
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }

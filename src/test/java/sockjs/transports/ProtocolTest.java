@@ -20,7 +20,7 @@ public class ProtocolTest {
     }
 
     @Test
-    public void decodeMessage() {
+    public void decodeMessage() throws Exception{
         String[] messages = Protocol.decodeMessage("[\"test\"]");
         assertEquals("test", messages[0]);
 
