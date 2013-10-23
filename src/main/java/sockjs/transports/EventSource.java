@@ -4,7 +4,6 @@
  */
 package sockjs.transports;
 
-import org.jboss.netty.buffer.ByteBufferBackedChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
@@ -15,12 +14,11 @@ import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sockjs.Connection;
-import sockjs.Message;
 import sockjs.SockJs;
 import sockjs.netty.HttpHelpers;
 import sockjs.netty.SockJsHandlerContext;
 
-public class EventSource extends AbstractTransport {
+public class EventSource extends XHttpRequest {
 
     private static final Logger log = LoggerFactory.getLogger(EventSource.class);
 
@@ -41,13 +39,10 @@ public class EventSource extends AbstractTransport {
     @Override
     public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         if (httpRequest.getMethod() == HttpMethod.GET) {
-            handleNewRequest(ctx, httpRequest);
+            handleStreaming(ctx, httpRequest);
+        } else if (httpRequest.getMethod() == HttpMethod.OPTIONS) {
+            HttpHelpers.sendOptions(ctx, httpRequest, "OPTIONS, GET");
         }
-    }
-
-    @Override
-    public void sendHeartbeat(Connection connection) {
-
     }
 
     @Override
@@ -69,11 +64,11 @@ public class EventSource extends AbstractTransport {
         connection.getChannel().close();
     }
 
-    private void handleNewRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+    private void handleStreaming(ChannelHandlerContext ctx, HttpRequest httpRequest) {
 
         SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx);
         if (sockJsHandlerContext != null) {
-            HttpResponse response = createStreamingResponse(ctx, httpRequest);
+            HttpResponse response = createStreamingResponse(httpRequest);
             HttpHelpers.addJESSIONID(response, sockJsHandlerContext.getJSESSIONID());
             ctx.getChannel().write(response).addListener(new SendPrelude(new SendOpen()));
         } else {
@@ -82,23 +77,8 @@ public class EventSource extends AbstractTransport {
         }
     }
 
-    private static HttpResponse createStreamingResponse(ChannelHandlerContext ctx,
-                                                        HttpRequest httpRequest) {
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.OK);
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
-
-        String origin = httpRequest.getHeader(HttpHeaders.Names.ORIGIN);
-        if (origin != null) {
-            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
-        } else {
-            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-        }
-
-        response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate," +
-                "" + " max-age=0");
-        response.setHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
-        response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
+    protected static HttpResponse createStreamingResponse(HttpRequest httpRequest) {
+        HttpResponse response = XHttpRequest.createStreamingResponse(httpRequest);
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/event-stream;charset=UTF-8");
 
         return response;

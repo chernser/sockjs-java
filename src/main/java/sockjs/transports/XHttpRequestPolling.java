@@ -44,17 +44,21 @@ public class XHttpRequestPolling extends AbstractTransport{
 
     }
 
-    private void pollMessages(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+    protected void pollMessages(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx);
         if (sockJsHandlerContext != null) {
             Connection connection = sockJsHandlerContext.getConnection();
             SockJsEvent sendEvent;
             if (connection == null) {
-                connection = getSockJs().createConnection(sockJsHandlerContext);
+                try {
+                    connection = createConnection(sockJsHandlerContext, httpRequest);
+                } catch (HttpRequestException ex) {
+                    HttpHelpers.sendError(ctx, ex.getResponseStatus(), ex.getMessage());
+                }
+
                 sockJsHandlerContext.setConnection(connection);
-                connection.setChannel(ctx.getChannel());
-                connection.setJSESSIONID(sockJsHandlerContext.getJSESSIONID());
                 connection.addMessageToBuffer(OPEN_FRAME);
+                connection.setChannel(ctx.getChannel());
                 sendEvent = new SockJsSendEvent(connection);
             } else if (connection.getCloseReason() != null) {
                 log.info("Connection is closed: " + connection.getCloseReason());
@@ -79,9 +83,12 @@ public class XHttpRequestPolling extends AbstractTransport{
         }
     }
 
-    @Override
-    public void sendHeartbeat(Connection connection) {
-        //To change body of implemented methods use File | Settings | File Templates.
+    protected Connection createConnection(SockJsHandlerContext sockJsHandlerContext,
+                                          HttpRequest httpRequest) {
+
+        Connection connection = getSockJs().createConnection(sockJsHandlerContext);
+        connection.setJSESSIONID(sockJsHandlerContext.getJSESSIONID());
+        return connection;
     }
 
     @Override
@@ -103,7 +110,7 @@ public class XHttpRequestPolling extends AbstractTransport{
         connection.getChannel().close();
     }
 
-    private static HttpResponse createResponse(ChannelBuffer content) {
+    protected static HttpResponse createResponse(ChannelBuffer content) {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.OK);
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");

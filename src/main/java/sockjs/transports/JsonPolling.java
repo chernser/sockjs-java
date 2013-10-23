@@ -9,10 +9,8 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.util.CharsetUtil;
-import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sockjs.Connection;
@@ -22,7 +20,7 @@ import sockjs.netty.*;
 import java.net.URLDecoder;
 import java.util.List;
 
-public class JsonPolling extends AbstractTransport {
+public class JsonPolling extends XHttpRequestPolling {
 
     private static final Logger log = LoggerFactory.getLogger(JsonPolling.class);
 
@@ -35,15 +33,10 @@ public class JsonPolling extends AbstractTransport {
     @Override
     public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         if (httpRequest.getMethod() == HttpMethod.GET) {
-            pollMessage(ctx, httpRequest);
+            pollMessages(ctx, httpRequest);
         } else if (httpRequest.getMethod() == HttpMethod.POST) {
             handleJsonPollingSend(ctx, httpRequest);
         }
-    }
-
-    @Override
-    public void sendHeartbeat(Connection connection) {
-        //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -131,61 +124,17 @@ public class JsonPolling extends AbstractTransport {
         }
     }
 
-    private void pollMessage(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+    @Override
+    protected Connection createConnection(SockJsHandlerContext sockJsHandlerContext, HttpRequest
+            httpRequest) {
+        Connection connection = super.createConnection(sockJsHandlerContext, httpRequest);
         List<String> callbacks = new QueryStringDecoder(httpRequest.getUri()).getParameters().get("c");
         if (callbacks == null || callbacks.isEmpty()) {
-            HttpHelpers.sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                    "\"callback\" parameter required");
-            return;
+            throw new HttpRequestException("\"callback\" parameter required",
+                    HttpResponseStatus.INTERNAL_SERVER_ERROR);
         }
+        connection.setJsonpCallback(callbacks.get(0));
 
-        SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx);
-        if (sockJsHandlerContext != null) {
-            Connection connection = sockJsHandlerContext.getConnection();
-            SockJsEvent sendEvent;
-            if (connection == null) {
-                connection = getSockJs().createConnection(sockJsHandlerContext);
-                sockJsHandlerContext.setConnection(connection);
-                connection.setJsonpCallback(callbacks.get(0));
-                connection.setChannel(ctx.getChannel());
-                connection.setJSESSIONID(sockJsHandlerContext.getJSESSIONID());
-                connection.addMessageToBuffer(Protocol.OPEN_FRAME);
-                sendEvent = new SockJsSendEvent(connection);
-            } else if (connection.getCloseReason() != null) {
-                log.info("Connection is closed: " + connection.getCloseReason());
-                connection.setChannel(ctx.getChannel());
-                sendEvent = new SockJsCloseEvent(connection, connection.getCloseReason());
-            } else {
-                log.info("polling all messages we have to send");
-                connection.setChannel(ctx.getChannel());
-                sendEvent = new SockJsSendEvent(connection);
-            }
-
-            ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(),
-                    sendEvent, ctx.getChannel().getRemoteAddress()));
-
-        } else {
-            HttpHelpers
-                    .sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                            "Internal Server Error");
-        }
-
+        return connection;
     }
-
-    private static HttpResponse createResponse(ChannelBuffer content) {
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.OK);
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-        response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate," +
-                "" + " max-age=0");
-        response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
-        response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/javascript;charset=UTF-8");
-        response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, content.readableBytes());
-
-        response.setContent(content);
-        return response;
-    }
-
-
 }

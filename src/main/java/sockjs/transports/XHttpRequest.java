@@ -68,7 +68,6 @@ public class XHttpRequest extends AbstractTransport {
             }
         } else if (httpRequest.getMethod() == HttpMethod.OPTIONS) {
                 HttpHelpers.sendOptions(ctx, httpRequest, "OPTIONS, POST");
-                return;
         }
     }
 
@@ -99,7 +98,7 @@ public class XHttpRequest extends AbstractTransport {
     private void handleStreaming(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(ctx);
         if (sockJsHandlerContext != null) {
-            HttpResponse response = createStreamingResponse(ctx, httpRequest);
+            HttpResponse response = createStreamingResponse(httpRequest);
             HttpHelpers.addJESSIONID(response, sockJsHandlerContext.getJSESSIONID());
             ChannelFutureListener nextListener;
             if (sockJsHandlerContext.getConnection() == null ||
@@ -165,11 +164,10 @@ public class XHttpRequest extends AbstractTransport {
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
-    private static HttpResponse createStreamingResponse(ChannelHandlerContext ctx,
-                                                        HttpRequest httpRequest) {
+    protected static HttpResponse createStreamingResponse(HttpRequest httpRequest) {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.OK);
-        //response.setChunked(true);
+                                                        HttpResponseStatus.OK);
+
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
 
         String origin = httpRequest.getHeader(HttpHeaders.Names.ORIGIN);

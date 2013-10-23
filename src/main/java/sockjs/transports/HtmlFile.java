@@ -5,7 +5,6 @@
 package sockjs.transports;
 
 import org.apache.commons.io.IOUtils;
-import org.codehaus.jackson.JsonParseException;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
@@ -23,11 +22,10 @@ import sockjs.netty.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.net.URL;
-import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.List;
 
-public class HtmlFile extends AbstractTransport {
+public class HtmlFile extends XHttpRequest {
 
     private static final Logger log = LoggerFactory.getLogger(HtmlFile.class);
 
@@ -56,11 +54,13 @@ public class HtmlFile extends AbstractTransport {
     @Override
     public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         if (httpRequest.getMethod() == HttpMethod.GET) {
-            pollMessage(ctx, httpRequest);
+            handleStreaming(ctx, httpRequest);
+        } else if (httpRequest.getMethod() == HttpMethod.OPTIONS) {
+            HttpHelpers.sendOptions(ctx, httpRequest, "OPTIONS, GET");
         }
     }
 
-    private void pollMessage(final ChannelHandlerContext ctx, HttpRequest httpRequest) {
+    private void handleStreaming(final ChannelHandlerContext ctx, HttpRequest httpRequest) {
         List<String> callbacks = new QueryStringDecoder(httpRequest.getUri()).getParameters().get("c");
         if (callbacks == null || callbacks.isEmpty()) {
             HttpHelpers
@@ -90,7 +90,7 @@ public class HtmlFile extends AbstractTransport {
             }
 
             final String prelude = String.format(htmlTemplate, callbacks.get(0));
-            HttpResponse response = createResponse();
+            HttpResponse response = createStreamingResponse(httpRequest);
             HttpHelpers.addJESSIONID(response, sockJsHandlerContext.getJSESSIONID());
             ctx.getChannel().write(response).addListener(new ChannelFutureListener() {
                 @Override
@@ -167,21 +167,9 @@ public class HtmlFile extends AbstractTransport {
         }
     }
 
-
-    private static HttpResponse createResponse() {
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.OK);
-        response.setChunked(true);
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
-        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-        response.setHeader(HttpHeaders.Names.CACHE_CONTROL, "no-store, no-cache, must-revalidate," +
-                "" + " max-age=0");
-        response.setHeader(HttpHeaders.Names.CONNECTION, "keep-alive");
-        response.setHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
+    protected static HttpResponse createStreamingResponse(HttpRequest httpRequest) {
+        HttpResponse response = XHttpRequest.createStreamingResponse(httpRequest);
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/html;charset=UTF-8");
-
         return response;
     }
-
-
 }

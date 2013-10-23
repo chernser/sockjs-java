@@ -68,6 +68,21 @@ public abstract class AbstractTransport extends SimpleChannelHandler implements 
         ctx.getChannel().close();
     }
 
+    @Override
+    public void sendHeartbeat(Connection connection) {
+
+    }
+
+    @Override
+    public void sendMessage(Connection connection, String[] messagesToSend) {
+
+    }
+
+    @Override
+    public void handleCloseRequest(Connection connection, Protocol.CloseReason reason) {
+
+    }
+
     public static void sendUpstream(Channel channel, Object message) {
         UpstreamMessageEvent event = new UpstreamMessageEvent(channel, message, channel.getRemoteAddress());
         channel.getPipeline().sendUpstream(event);

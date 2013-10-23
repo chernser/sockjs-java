@@ -35,15 +35,11 @@ public class WebSocket extends AbstractTransport {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e)
             throws Exception {
-        log.info("exception: ", e.getCause());
         try {
-            if (ctx.getChannel().isWritable()) {
-//                ctx.getChannel().write(new CloseWebSocketFrame()).addListener(ChannelFutureListener.CLOSE);
-            } else {
+            if (!ctx.getChannel().isWritable()) {
                 ctx.getChannel().close();
             }
         } catch (Exception ex) {
-            log.error(">> ", ex);
         }
     }
 
