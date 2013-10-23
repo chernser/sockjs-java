@@ -161,6 +161,9 @@ public class SockJs {
     }
 
     public Connection getConnectionForSession(String sessionId) {
+        if (sessionId == null) {
+            return null;
+        }
         return sessionConnections.get(sessionId);
     }
 

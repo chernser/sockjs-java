@@ -5,6 +5,8 @@
 package sockjs.transports;
 
 import org.codehaus.jackson.JsonParseException;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.handler.codec.http.*;
@@ -15,6 +17,14 @@ import sockjs.Connection;
 import sockjs.SockJs;
 import sockjs.netty.HttpHelpers;
 import sockjs.netty.SockJsHandlerContext;
+import sockjs.netty.WebSocketHandshakerFactory;
+
+import java.util.UUID;
+
+import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.*;
+import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.WEBSOCKET_PROTOCOL;
+import static org.jboss.netty.handler.codec.http.HttpHeaders.Values.WEBSOCKET;
+import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 public class WebSocket extends AbstractTransport {
 
@@ -36,10 +46,12 @@ public class WebSocket extends AbstractTransport {
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e)
             throws Exception {
         try {
+            log.error("exception:", e.getCause());
             if (!ctx.getChannel().isWritable()) {
                 ctx.getChannel().close();
             }
         } catch (Exception ex) {
+
         }
     }
 
@@ -55,13 +67,14 @@ public class WebSocket extends AbstractTransport {
                 HttpHelpers.sendError(ctx, HttpResponseStatus.BAD_REQUEST, ERR_INCORRECT_UPGRADE);
             } else {
                 // upgrade & handshake
-                WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(
+                WebSocketServerHandshakerFactory wsFactory = new WebSocketHandshakerFactory(
                         getWebSocketLocation(httpRequest, "/"), null, false);
                 WebSocketServerHandshaker handshaker = wsFactory.newHandshaker(httpRequest);
                 if (handshaker == null) {
                     wsFactory.sendUnsupportedWebSocketVersionResponse(ctx.getChannel());
                 } else {
-                    if (WebSocketVersion.V08.equals(handshaker.getVersion())) {
+                    if (getSockJsHandlerContext(ctx).getSessionId() == null) {
+                        getSockJsHandlerContext(ctx).setSessionId(UUID.randomUUID().toString());
                         handshaker.handshake(ctx.getChannel(), httpRequest).addListener(INIT_CONNECTION);
                         ctx.getPipeline().replace(this, "handler", new RawWebSocket(getSockJs()));
                     } else {
@@ -95,9 +108,6 @@ public class WebSocket extends AbstractTransport {
                     for (String message : messages) {
                         sockJsHandlerContext.getConnection().sendToListeners(message);
                     }
-                } else {
-                    handleCloseRequest(sockJsHandlerContext
-                            .getConnection(), Protocol.CloseReason.NORMAL);
                 }
             } catch (JsonParseException ex) {
                 handleCloseRequest(sockJsHandlerContext
@@ -126,7 +136,8 @@ public class WebSocket extends AbstractTransport {
 
     @Override
     public void handleCloseRequest(Connection connection, Protocol.CloseReason reason) {
-        connection.getChannel().write(new CloseWebSocketFrame()).addListener(ChannelFutureListener.CLOSE);
+        final CloseWebSocketFrame closeWebSocketFrame = new CloseWebSocketFrame(1000, reason.frame);
+        connection.getChannel().write(closeWebSocketFrame).addListener(ChannelFutureListener.CLOSE);
     }
 
     private boolean isWebSocketUpgrade(HttpRequest httpRequest) {
@@ -153,7 +164,7 @@ public class WebSocket extends AbstractTransport {
                 connection.setChannel(future.getChannel());
                 connection.startHeartbeat();
                 sockJsHandlerContext.setConnection(connection);
-                WebSocket.this.getSockJs().notifyListenersAboutNewConnection(connection);
+
             } else {
                 log.error("no sockjs handler context for channel");
             }
@@ -168,6 +179,8 @@ public class WebSocket extends AbstractTransport {
             super.operationComplete(future);
             if (future.getChannel().isWritable()) {
                 future.getChannel().write(Protocol.WEB_SOCKET_OPEN_FRAME);
+                SockJsHandlerContext sockJsHandlerContext = getSockJsHandlerContext(future.getChannel());
+                WebSocket.this.getSockJs().notifyListenersAboutNewConnection(sockJsHandlerContext.getConnection());
             }
         }
     }

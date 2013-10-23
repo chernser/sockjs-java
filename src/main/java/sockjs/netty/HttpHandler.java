@@ -99,7 +99,7 @@ public class HttpHandler extends SimpleChannelHandler {
             jsesssionId = jsesssionId != null ? jsesssionId : "dummy";
         }
 
-        String sessionId = getSessionId(req.getUri());
+        String sessionId = getSessionId(req.getUri().substring(baseUrl.length() + 1));
 
         SockJsHandlerContext sockJsHandlerContext = new SockJsHandlerContext();
         sockJsHandlerContext.setBaseUrl(baseUrl);
@@ -162,7 +162,7 @@ public class HttpHandler extends SimpleChannelHandler {
 
     private String getSessionId(String uri) {
         String[] parsedUri = uri.split("/");
-        if (parsedUri.length > 0) {
+        if (parsedUri.length > 2) {
             return parsedUri[parsedUri.length - 2];
         }
         return null;
