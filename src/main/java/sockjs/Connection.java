@@ -13,6 +13,7 @@ import org.jboss.netty.util.Timeout;
 import org.jboss.netty.util.TimerTask;
 import sockjs.netty.SockJsCloseEvent;
 import sockjs.netty.SockJsSendEvent;
+import sockjs.transports.AbstractTransport;
 import sockjs.transports.Protocol;
 
 import java.util.UUID;
@@ -45,6 +46,8 @@ public class Connection {
     private Protocol.CloseReason closeReason;
 
     private String JSESSIONID;
+
+    private static final String[] EMTPY_MESSAGE_ARRAY = new String[] {};
 
     public Connection(SockJs sockJs, String baseUrl) {
         this.sockJs = sockJs;
@@ -91,14 +94,14 @@ public class Connection {
         startHeartbeat(this);
     }
 
+    public void addMessageToBuffer(String message) {
+        messages.add(message);
+    }
+
     public void sendToChannel(String message) {
+        addMessageToBuffer(message);
         if (getChannel() != null && getChannel().isWritable()) {
-            getChannel().getPipeline()
-                    .sendUpstream(new UpstreamMessageEvent(getChannel(), new SockJsSendEvent
-                            (this, message), getChannel()
-                            .getRemoteAddress()));
-        } else {
-            messages.add(message);
+            AbstractTransport.sendUpstream(getChannel(), new SockJsSendEvent(this));
         }
     }
 
@@ -131,6 +134,9 @@ public class Connection {
     }
 
     public String[] pollAllMessages() {
+        if (messages.isEmpty()) {
+            return EMTPY_MESSAGE_ARRAY;
+        }
 
         int numOfMessages = messages.size();
         String[] polledMessages = new String[numOfMessages];

@@ -14,7 +14,7 @@ public interface Transport {
 
     void sendHeartbeat(Connection connection);
 
-    void sendMessage(Connection connection, String encodedMessage);
+    void sendMessage(Connection connection, String[] messagesToSend);
 
     void handleCloseRequest(Connection connection, Protocol.CloseReason reason);
 }

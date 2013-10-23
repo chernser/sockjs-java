@@ -11,22 +11,11 @@ public class SockJsSendEvent implements SockJsEvent {
 
     private final Connection connection;
 
-    private final String payload;
-
-    public SockJsSendEvent(Connection connection, String payload) {
-        this(connection, payload, false);
-    }
-
-    public SockJsSendEvent(Connection connection, String payload, boolean raw) {
+    public SockJsSendEvent(Connection connection) {
         this.connection = connection;
-        this.payload = raw ? payload : Protocol.encodeMessageToString(payload);
     }
 
     public Connection getConnection() {
         return connection;
-    }
-
-    public String getPayload() {
-        return payload;
     }
 }

@@ -20,13 +20,15 @@ public class RawWebSocket extends AbstractTransport {
 
     @Override
     public void sendHeartbeat(Connection connection) {
-        connection.getChannel().write(Protocol.WEB_SOCKET_HEARTBEAT_FRAME + "\uffff");
+        connection.getChannel().write(Protocol.WEB_SOCKET_HEARTBEAT_FRAME);
     }
 
     @Override
-    public void sendMessage(Connection connection, String encodedMessage) {
-        log.info("sending via raw web socket: " +encodedMessage);
-        connection.getChannel().write(new TextWebSocketFrame(encodedMessage + "\uffff"));
+    public void sendMessage(Connection connection, String[] messagesToSend) {
+        for (String message : messagesToSend) {
+            log.info("sending via raw web socket: " +message);
+            connection.getChannel().write(new TextWebSocketFrame(message));
+        }
     }
 
     @Override

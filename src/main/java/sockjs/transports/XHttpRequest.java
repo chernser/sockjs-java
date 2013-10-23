@@ -78,7 +78,8 @@ public class XHttpRequest extends AbstractTransport {
     }
 
     @Override
-    public void sendMessage(Connection connection, String message) {
+    public void sendMessage(Connection connection, String[] messagesToSend) {
+        String message = Protocol.encodeMessageToString(messagesToSend);
         ChannelBuffer content = ChannelBuffers.copiedBuffer(message + "\n", CharsetUtil.UTF_8);
         ChannelFuture writeFuture = connection.getChannel().write(new DefaultHttpChunk(content));
         connection.incSentBytes(content.readableBytes());

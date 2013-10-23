@@ -47,9 +47,15 @@ public class JsonPolling extends AbstractTransport {
     }
 
     @Override
-    public void sendMessage(Connection connection, String message) {
-        log.info("sendMessage: " + message);
+    public void sendMessage(Connection connection, String[] messagesToSend) {
+        String message;
+        if (!messagesToSend[0].equals(Protocol.OPEN_FRAME)) {
+            message= Protocol.encodeToJSONString(messagesToSend);
+        } else {
+            message = JSONP_OPEN_FRAME;
+        }
         String encodedMessage = connection.getJsonpCallback() + "(" + message + ");\r\n";
+        log.info("Encoded message: " + encodedMessage);
         ChannelBuffer content = ChannelBuffers.copiedBuffer(encodedMessage, CharsetUtil.UTF_8);
         HttpResponse response = createResponse(content);
         HttpHelpers.addJESSIONID(response, connection.getJSESSIONID());
@@ -63,7 +69,7 @@ public class JsonPolling extends AbstractTransport {
             }
         }
 
-        if (JSONP_OPEN_FRAME.equals(message)) {
+        if (JSONP_OPEN_FRAME.equals(messagesToSend[0])) {
             getSockJs().notifyListenersAboutNewConnection(connection);
         }
     }
@@ -143,7 +149,8 @@ public class JsonPolling extends AbstractTransport {
                 connection.setJsonpCallback(callbacks.get(0));
                 connection.setChannel(ctx.getChannel());
                 connection.setJSESSIONID(sockJsHandlerContext.getJSESSIONID());
-                sendEvent = new SockJsSendEvent(connection, JSONP_OPEN_FRAME, true);
+                connection.addMessageToBuffer(Protocol.OPEN_FRAME);
+                sendEvent = new SockJsSendEvent(connection);
             } else if (connection.getCloseReason() != null) {
                 log.info("Connection is closed: " + connection.getCloseReason());
                 connection.setChannel(ctx.getChannel());
@@ -151,19 +158,12 @@ public class JsonPolling extends AbstractTransport {
             } else {
                 log.info("polling all messages we have to send");
                 connection.setChannel(ctx.getChannel());
-                String[] messagesToSend = connection.pollAllMessages();
-                if (messagesToSend.length > 0) {
-                    String encodedMessage = Protocol.encodeToJSONString(messagesToSend);
-                    sendEvent = new SockJsSendEvent(connection, encodedMessage , true);
-                } else {
-                    sendEvent = null;
-                }
+                sendEvent = new SockJsSendEvent(connection);
             }
 
-            if (sendEvent != null) {
-                ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(),
-                        sendEvent, ctx.getChannel().getRemoteAddress()));
-            }
+            ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(),
+                    sendEvent, ctx.getChannel().getRemoteAddress()));
+
         } else {
             HttpHelpers
                     .sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,

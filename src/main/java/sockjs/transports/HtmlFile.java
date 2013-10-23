@@ -79,19 +79,14 @@ public class HtmlFile extends AbstractTransport {
                 connection.setJsonpCallback(callbacks.get(0));
                 connection.setChannel(ctx.getChannel());
                 connection.setJSESSIONID(sockJsHandlerContext.getJSESSIONID());
-                sendEvent = new SockJsSendEvent(connection, OPEN_FRAME, true);
+                connection.addMessageToBuffer(OPEN_FRAME);
+                sendEvent = new SockJsSendEvent(connection);
             } else if (connection.getCloseReason() != null) {
                 connection.setChannel(ctx.getChannel());
                 sendEvent = new SockJsCloseEvent(connection, connection.getCloseReason());
             } else {
                 connection.setChannel(ctx.getChannel());
-                String[] messagesToSend = connection.pollAllMessages();
-                if (messagesToSend.length > 0) {
-                    String encodedMessage = Protocol.encodeMessageToString(messagesToSend);
-                    sendEvent = new SockJsSendEvent(connection, encodedMessage);
-                } else {
-                    sendEvent = null;
-                }
+                sendEvent = new SockJsSendEvent(connection);
             }
 
             final String prelude = String.format(htmlTemplate, callbacks.get(0));
@@ -133,9 +128,12 @@ public class HtmlFile extends AbstractTransport {
     }
 
     @Override
-    public void sendMessage(Connection connection, String message) {
-        if (!OPEN_FRAME.equals(message)) {
-             message = Protocol.encodeToJSONString(message);
+    public void sendMessage(Connection connection, String[] messagesToSend) {
+        String message;
+        if (!OPEN_FRAME.equals(messagesToSend[0])) {
+             message = Protocol.encodeToJSONString(messagesToSend);
+        } else {
+            message = messagesToSend[0];
         }
 
         String encodedMessage = "<script>\np(" + message + ");\n</script>\r\n";

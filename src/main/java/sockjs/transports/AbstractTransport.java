@@ -42,7 +42,10 @@ public abstract class AbstractTransport extends SimpleChannelHandler implements 
             handleCloseRequest(se.getConnection(), se.getReason());
         } else if (msg instanceof SockJsSendEvent) {
             SockJsSendEvent se = (SockJsSendEvent)msg;
-            sendMessage(se.getConnection(), se.getPayload());
+            String[] messagesToSend = se.getConnection().pollAllMessages();
+            if (messagesToSend.length > 0) {
+                sendMessage(se.getConnection(), messagesToSend);
+            }
         } else if (msg instanceof WebSocketFrame) {
             handle(ctx, (WebSocketFrame)msg);
         }
@@ -63,6 +66,11 @@ public abstract class AbstractTransport extends SimpleChannelHandler implements 
             throws Exception {
         log.error("Exception in transport: ", e.getCause());
         ctx.getChannel().close();
+    }
+
+    public static void sendUpstream(Channel channel, Object message) {
+        UpstreamMessageEvent event = new UpstreamMessageEvent(channel, message, channel.getRemoteAddress());
+        channel.getPipeline().sendUpstream(event);
     }
 
     protected SockJsHandlerContext getSockJsHandlerContext(Channel channel) {

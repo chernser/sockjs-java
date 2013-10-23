@@ -54,7 +54,8 @@ public class XHttpRequestPolling extends AbstractTransport{
                 sockJsHandlerContext.setConnection(connection);
                 connection.setChannel(ctx.getChannel());
                 connection.setJSESSIONID(sockJsHandlerContext.getJSESSIONID());
-                sendEvent = new SockJsSendEvent(connection, OPEN_FRAME, true);
+                connection.addMessageToBuffer(OPEN_FRAME);
+                sendEvent = new SockJsSendEvent(connection);
             } else if (connection.getCloseReason() != null) {
                 log.info("Connection is closed: " + connection.getCloseReason());
                 connection.setChannel(ctx.getChannel());
@@ -66,19 +67,11 @@ public class XHttpRequestPolling extends AbstractTransport{
             } else {
                 log.info("polling all messages we have to send");
                 connection.setChannel(ctx.getChannel());
-                String[] messagesToSend = connection.pollAllMessages();
-                if (messagesToSend.length > 0) {
-                    String encodedMessage = Protocol.encodeMessageToString(messagesToSend);
-                    sendEvent = new SockJsSendEvent(connection, encodedMessage, true);
-                } else {
-                    sendEvent = null;
-                }
+                sendEvent = new SockJsSendEvent(connection);
             }
 
-            if (sendEvent != null) {
-                ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(),
-                        sendEvent, ctx.getChannel().getRemoteAddress()));
-            }
+            ctx.getPipeline().sendUpstream(new UpstreamMessageEvent(ctx.getChannel(),
+                    sendEvent, ctx.getChannel().getRemoteAddress()));
         } else {
             HttpHelpers
                     .sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
@@ -92,7 +85,13 @@ public class XHttpRequestPolling extends AbstractTransport{
     }
 
     @Override
-    public void sendMessage(Connection connection, String encodedMessage) {
+    public void sendMessage(Connection connection, String[] messagesToSend) {
+        String encodedMessage;
+        if (!messagesToSend[0].equals(OPEN_FRAME)) {
+            encodedMessage = Protocol.encodeMessageToString(messagesToSend);
+        } else {
+            encodedMessage = messagesToSend[0];
+        }
         ChannelBuffer content = ChannelBuffers.copiedBuffer(encodedMessage + '\n', CharsetUtil.UTF_8);
         HttpResponse response = createResponse(content);
         HttpHelpers.addJESSIONID(response, connection.getJSESSIONID());

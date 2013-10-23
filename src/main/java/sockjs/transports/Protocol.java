@@ -60,27 +60,10 @@ public class Protocol {
         jsonObjectMapper = new ObjectMapper();
     }
 
-    public static String encodeMessagesToString(Collection<Message> messages) {
-        try {
-            String encodedPayload = jsonObjectMapper.writeValueAsString(messages);
-            return String.format("a[%s]", encodedPayload);
-        } catch (Exception ex) {
-            throw new RuntimeException(ex);
-        }
-    }
-
     public static String encodeMessageToString(String payload) {
         try {
             String encodedPayload = jsonObjectMapper.writeValueAsString(payload);
             return String.format("a[%s]", encodedPayload);
-        } catch (Exception ex) {
-            throw new RuntimeException(ex);
-        }
-    }
-
-    public static String encodeToJSONString(String payload) {
-        try {
-            return jsonObjectMapper.writeValueAsString(payload);
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }

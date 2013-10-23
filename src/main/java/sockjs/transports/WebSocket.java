@@ -127,7 +127,8 @@ public class WebSocket extends AbstractTransport {
     }
 
     @Override
-    public void sendMessage(Connection connection, String message) {
+    public void sendMessage(Connection connection, String[] messagesToSend) {
+        String message = Protocol.encodeMessageToString(messagesToSend);
         log.info("handling send message: " + message);
         connection.getChannel().write( new TextWebSocketFrame(message));
     }
