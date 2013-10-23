@@ -8,7 +8,6 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.util.CharsetUtil;
@@ -17,8 +16,9 @@ import org.slf4j.LoggerFactory;
 import sockjs.Connection;
 import sockjs.SockJs;
 import sockjs.netty.*;
-
-import java.util.Collection;
+import sockjs.netty.events.SockJsCloseEvent;
+import sockjs.netty.events.SockJsEvent;
+import sockjs.netty.events.SockJsSendEvent;
 
 public class XHttpRequestPolling extends AbstractTransport{
 
@@ -93,16 +93,21 @@ public class XHttpRequestPolling extends AbstractTransport{
 
     @Override
     public void sendMessage(Connection connection, String[] messagesToSend) {
-        String encodedMessage;
-        if (!messagesToSend[0].equals(OPEN_FRAME)) {
-            encodedMessage = Protocol.encodeMessageToString(messagesToSend);
-        } else {
-            encodedMessage = messagesToSend[0];
-        }
-        ChannelBuffer content = ChannelBuffers.copiedBuffer(encodedMessage + '\n', CharsetUtil.UTF_8);
+        String encodedMessage = encodeMessage(connection, messagesToSend);
+        ChannelBuffer content = ChannelBuffers.copiedBuffer(encodedMessage, CharsetUtil.UTF_8);
         HttpResponse response = createResponse(content);
         HttpHelpers.addJESSIONID(response, connection.getJSESSIONID());
-        connection.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+        if (connection.getChannel().isWritable()) {
+            connection.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+        }
+    }
+
+    protected String encodeMessage(Connection connection, String[] messagesToSend) {
+        if (!messagesToSend[0].equals(Protocol.OPEN_FRAME)) {
+            return Protocol.encodeMessageToString(messagesToSend) + '\n';
+        } else {
+            return messagesToSend[0] + '\n';
+        }
     }
 
     @Override

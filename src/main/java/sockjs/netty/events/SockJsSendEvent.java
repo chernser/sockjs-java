@@ -2,10 +2,9 @@
  * @author Sergey Chernov
  *         See LICENSE file in the root of the project
  */
-package sockjs.netty;
+package sockjs.netty.events;
 
 import sockjs.Connection;
-import sockjs.transports.Protocol;
 
 public class SockJsSendEvent implements SockJsEvent {
 

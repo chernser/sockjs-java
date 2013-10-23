@@ -5,14 +5,12 @@
 package sockjs;
 
 import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelState;
-import org.jboss.netty.channel.UpstreamChannelStateEvent;
 import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.Timeout;
 import org.jboss.netty.util.TimerTask;
-import sockjs.netty.SockJsCloseEvent;
-import sockjs.netty.SockJsSendEvent;
+import sockjs.netty.events.SockJsCloseEvent;
+import sockjs.netty.events.SockJsSendEvent;
 import sockjs.transports.AbstractTransport;
 import sockjs.transports.Protocol;
 

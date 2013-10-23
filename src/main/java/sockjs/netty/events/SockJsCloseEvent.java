@@ -2,13 +2,10 @@
  * @author Sergey Chernov
  *         See LICENSE file in the root of the project
  */
-package sockjs.netty;
+package sockjs.netty.events;
 
-import org.jboss.netty.channel.*;
 import sockjs.Connection;
 import sockjs.transports.Protocol;
-
-import java.net.SocketAddress;
 
 public class SockJsCloseEvent implements SockJsEvent {
 

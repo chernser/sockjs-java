@@ -78,6 +78,15 @@ public class HttpHelpers {
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
+    public static void sendMethodNotAllowed(ChannelHandlerContext ctx, String allowedMethods) {
+        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.METHOD_NOT_ALLOWED);
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, true);
+        response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        response.setHeader(HttpHeaders.Names.ALLOW, allowedMethods);
+        response.setHeader(HttpHeaders.Names.CONNECTION, "close");
+        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+    }
+
     public static void sendOptions(ChannelHandlerContext ctx, HttpRequest req, String allowedMethods) {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
         response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, true);

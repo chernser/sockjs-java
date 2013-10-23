@@ -40,31 +40,14 @@ public class JsonPolling extends XHttpRequestPolling {
     }
 
     @Override
-    public void sendMessage(Connection connection, String[] messagesToSend) {
-        String message;
+    protected String encodeMessage(Connection connection, String[] messagesToSend) {
+        String encodedMessage;
         if (!messagesToSend[0].equals(Protocol.OPEN_FRAME)) {
-            message= Protocol.encodeToJSONString(messagesToSend);
+            encodedMessage = Protocol.encodeToJSONString(messagesToSend);
         } else {
-            message = JSONP_OPEN_FRAME;
+            encodedMessage = JSONP_OPEN_FRAME;
         }
-        String encodedMessage = connection.getJsonpCallback() + "(" + message + ");\r\n";
-        log.info("Encoded message: " + encodedMessage);
-        ChannelBuffer content = ChannelBuffers.copiedBuffer(encodedMessage, CharsetUtil.UTF_8);
-        HttpResponse response = createResponse(content);
-        HttpHelpers.addJESSIONID(response, connection.getJSESSIONID());
-        if (connection.getChannel().isWritable()) {
-            connection.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
-            connection.incSentBytes(content.readableBytes());
-
-            if (connection.getSentBytes() > getSockJs().getMaxStreamSize()) {
-                connection.resetSentBytes();
-                connection.setCloseReason(Protocol.CloseReason.NORMAL);
-            }
-        }
-
-        if (JSONP_OPEN_FRAME.equals(messagesToSend[0])) {
-            getSockJs().notifyListenersAboutNewConnection(connection);
-        }
+        return connection.getJsonpCallback() + "(" + encodedMessage + ");\r\n";
     }
 
     @Override

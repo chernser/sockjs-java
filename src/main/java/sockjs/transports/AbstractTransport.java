@@ -13,9 +13,9 @@ import sockjs.Connection;
 import sockjs.SockJs;
 import sockjs.Transport;
 import sockjs.netty.HttpHelpers;
-import sockjs.netty.SockJsCloseEvent;
+import sockjs.netty.events.SockJsCloseEvent;
 import sockjs.netty.SockJsHandlerContext;
-import sockjs.netty.SockJsSendEvent;
+import sockjs.netty.events.SockJsSendEvent;
 
 public abstract class AbstractTransport extends SimpleChannelHandler implements Transport {
 

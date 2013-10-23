@@ -18,6 +18,9 @@ import org.slf4j.LoggerFactory;
 import sockjs.Connection;
 import sockjs.SockJs;
 import sockjs.netty.*;
+import sockjs.netty.events.SockJsCloseEvent;
+import sockjs.netty.events.SockJsEvent;
+import sockjs.netty.events.SockJsSendEvent;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -120,11 +123,6 @@ public class HtmlFile extends XHttpRequest {
                     .sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
                             "Internal Server Error");
         }
-    }
-
-    @Override
-    public void sendHeartbeat(Connection connection) {
-
     }
 
     @Override

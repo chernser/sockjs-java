@@ -46,12 +46,7 @@ public class WebSocket extends AbstractTransport {
     @Override
     public void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         if (httpRequest.getMethod() != HttpMethod.GET) {
-            HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.METHOD_NOT_ALLOWED);
-            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_CREDENTIALS, true);
-            response.setHeader(HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-            response.setHeader(HttpHeaders.Names.ALLOW, "GET");
-            response.setHeader(HttpHeaders.Names.CONNECTION, "close");
-            ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+            HttpHelpers.sendMethodNotAllowed(ctx, "GET");
             return;
         }
 
